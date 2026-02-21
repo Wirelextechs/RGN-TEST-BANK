@@ -104,22 +104,24 @@ export default function DashboardPage() {
                         <span>Quizzes</span>
                     </Button>
                     {isAdmin && (
-                        <Button
-                            variant="ghost"
-                            className={`${styles.navItem} ${activeTab === "students" ? styles.active : ""}`}
-                            onClick={() => setActiveTab("students")}
-                        >
-                            <Users size={20} />
-                            <span>Students</span>
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
-                            onClick={() => setActiveTab("impact")}
-                        >
-                            <School size={20} />
-                            <span>Impact</span>
-                        </Button>
+                        <>
+                            <Button
+                                variant="ghost"
+                                className={`${styles.navItem} ${activeTab === "students" ? styles.active : ""}`}
+                                onClick={() => setActiveTab("students")}
+                            >
+                                <Users size={20} />
+                                <span>Students</span>
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
+                                onClick={() => setActiveTab("impact")}
+                            >
+                                <School size={20} />
+                                <span>Impact</span>
+                            </Button>
+                        </>
                     )}
                 </nav>
 
