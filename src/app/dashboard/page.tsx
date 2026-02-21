@@ -16,9 +16,9 @@ import {
     Bell,
     Trophy
 } from "lucide-react";
-import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 export default function DashboardPage() {
     const { user, profile, loading, signOut } = useAuth();
@@ -46,7 +46,7 @@ export default function DashboardPage() {
         <div className={styles.container}>
             <aside className={styles.sidebar}>
                 <div className={styles.logo}>
-                    <Video size={24} color="var(--primary)" />
+                    <Image src="/logo.jpg" alt="RGN Logo" width={32} height={32} className={styles.brandLogo} />
                     <span>RGN TEST BANK</span>
                 </div>
 

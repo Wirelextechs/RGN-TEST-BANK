@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { BookOpen, Video, FileText, BarChart3, Users } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import styles from "./page.module.css";
 
 export default function Home() {
@@ -10,7 +11,7 @@ export default function Home() {
     <div className={styles.container}>
       <header className={styles.header}>
         <div className={styles.logo}>
-          <BookOpen className={styles.icon} />
+          <Image src="/logo.jpg" alt="RGN Logo" width={32} height={32} className={styles.brandLogo} />
           <span>RGN TEST BANK GH</span>
         </div>
         <nav className={styles.nav}>
