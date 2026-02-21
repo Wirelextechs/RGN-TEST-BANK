@@ -11,17 +11,34 @@ export function useAuth() {
 
     useEffect(() => {
         // Check active sessions and sets the user
+        const fetchProfile = async (currentUser: User) => {
+            const { data } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", currentUser.id)
+                .single();
+
+            if (data) {
+                setProfile(data);
+            } else {
+                setProfile({
+                    id: currentUser.id,
+                    full_name: currentUser.user_metadata?.full_name || "User",
+                    role: currentUser.user_metadata?.role || "student",
+                    school: currentUser.user_metadata?.school || "",
+                    is_locked: false,
+                    is_hand_raised: false
+                } as Profile);
+            }
+        };
+
         const getSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
 
-            if (session?.user) {
-                const { data } = await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", session.user.id)
-                    .single();
-                setProfile(data);
+            if (currentUser) {
+                await fetchProfile(currentUser);
             }
 
             setLoading(false);
