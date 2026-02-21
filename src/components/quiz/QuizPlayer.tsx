@@ -25,6 +25,16 @@ export const QuizPlayer = ({ quiz, timeLimit = 10, onComplete }: QuizPlayerProps
     const [isFinished, setIsFinished] = useState(false);
     const [score, setScore] = useState(0);
 
+    if (!quiz || quiz.length === 0) {
+        return (
+            <Card className={styles.resultsCard}>
+                <AlertCircle size={64} color="var(--secondary)" className={styles.resultIcon} />
+                <h2>No Quizzes Available</h2>
+                <p>Check back later for new study sets!</p>
+            </Card>
+        );
+    }
+
     useEffect(() => {
         if (timeLeft <= 0 && !isFinished) {
             handleFinish();

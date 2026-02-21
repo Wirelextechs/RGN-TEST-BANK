@@ -160,13 +160,24 @@ export default function DashboardPage() {
                 >
                     <FileEdit size={20} />
                 </Button>
-                <Button
-                    variant="ghost"
-                    className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
-                    onClick={() => setActiveTab("impact")}
-                >
-                    <School size={20} />
-                </Button>
+                {isAdmin && (
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "students" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("students")}
+                    >
+                        <Users size={20} />
+                    </Button>
+                )}
+                {isAdmin && (
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("impact")}
+                    >
+                        <School size={20} />
+                    </Button>
+                )}
             </nav>
 
             <main className={styles.main}>
