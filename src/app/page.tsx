@@ -42,11 +42,21 @@ export default function Home() {
           <Card glass className={styles.previewCard}>
             <div className={styles.cardHeader}>
               <Users size={18} />
-              <span>Live Class in Session</span>
+              <span>Live Pharmacy Lecture</span>
               <div className={styles.liveIndicator}>LIVE</div>
             </div>
-            <div className={styles.videoPlaceholder}>
-              <Video size={48} />
+            <div className={styles.previewContent}>
+              <div className={styles.lectureInfo}>
+                <div className={styles.avatar}>IN</div>
+                <div>
+                  <div className={styles.instructorName}>Instructor Nana</div>
+                  <div className={styles.subText}>Pharmacology Basics • 156 Students</div>
+                </div>
+              </div>
+              <div className={styles.chatPreview}>
+                <div className={styles.chatMessage}><span>Student:</span> Can we get the slides?</div>
+                <div className={styles.chatMessage}><span>Admin:</span> Yes, after the quiz!</div>
+              </div>
             </div>
           </Card>
         </div>
