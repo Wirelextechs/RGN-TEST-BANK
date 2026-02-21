@@ -14,8 +14,10 @@ export default function Home() {
           <span>RGN TEST BANK GH</span>
         </div>
         <nav className={styles.nav}>
-          <Link href="/login">Login</Link>
-          <Button variant="primary" size="sm">Get Started</Button>
+          <Link href="/login" className={styles.loginLink}>Login</Link>
+          <Link href="/register">
+            <Button variant="primary" size="sm">Get Started</Button>
+          </Link>
         </nav>
       </header>
 
@@ -26,8 +28,12 @@ export default function Home() {
             The all-in-one study platform for Ghanaian nursing students. Live interactive classes, AI-powered quiz generation, and detailed analytics.
           </p>
           <div className={styles.actions + " animate-fade-in"} style={{ animationDelay: '0.2s' }}>
-            <Button size="lg">Start Studying Now</Button>
-            <Button variant="outline" size="lg">View Demo Class</Button>
+            <Link href="/register">
+              <Button size="lg">Start Studying Now</Button>
+            </Link>
+            <Link href="/login">
+              <Button variant="outline" size="lg">View Demo Class</Button>
+            </Link>
           </div>
         </div>
 

@@ -155,6 +155,23 @@
     gap: 1.5rem;
 }
 
+.quizSection,
+.overviewSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.placeholderIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--secondary);
+    opacity: 0.5;
+}
+
 .videoSection {
     display: flex;
     flex-direction: column;

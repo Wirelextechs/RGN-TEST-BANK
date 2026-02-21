@@ -18,11 +18,12 @@ import {
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
     const { user, profile, loading, signOut } = useAuth();
     const router = useRouter();
+    const [activeTab, setActiveTab] = useState("live");
 
     useEffect(() => {
         if (!loading && !user) {
@@ -50,20 +51,36 @@ export default function DashboardPage() {
                 </div>
 
                 <nav className={styles.nav}>
-                    <Button variant="ghost" className={styles.navItem}>
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "overview" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("overview")}
+                    >
                         <LayoutDashboard size={20} />
                         <span>Overview</span>
                     </Button>
-                    <Button variant="ghost" className={styles.navItem + " " + styles.active}>
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "live" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("live")}
+                    >
                         <Video size={20} />
                         <span>Live Class</span>
                     </Button>
-                    <Button variant="ghost" className={styles.navItem}>
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "quizzes" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("quizzes")}
+                    >
                         <FileEdit size={20} />
                         <span>Quizzes</span>
                     </Button>
                     {isAdmin && (
-                        <Button variant="ghost" className={styles.navItem}>
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === "students" ? styles.active : ""}`}
+                            onClick={() => setActiveTab("students")}
+                        >
                             <Users size={20} />
                             <span>Students</span>
                         </Button>
@@ -100,53 +117,75 @@ export default function DashboardPage() {
 
                 <div className={styles.contentGrid}>
                     <div className={styles.leftCol}>
-                        {isAdmin ? (
-                            <div className={styles.adminTools}>
-                                <QuizGenerator />
-                                <Card className={styles.activityCard} title="Class Activity Rankings">
-                                    <div className={styles.rankingList}>
-                                        <div className={styles.rankingItem}>
-                                            <Trophy size={20} color="#FFD700" />
-                                            <span>Kwadwo Mensah</span>
-                                            <span className={styles.points}>42 pts</span>
-                                        </div>
-                                        <div className={styles.rankingItem}>
-                                            <Trophy size={20} color="#C0C0C0" />
-                                            <span>Ama Serwaa</span>
-                                            <span className={styles.points}>38 pts</span>
-                                        </div>
-                                    </div>
-                                </Card>
-                            </div>
-                        ) : (
-                            <div className={styles.studentView}>
-                                <Card className={styles.videoPlayer}>
-                                    <div className={styles.videoOverlay}>
-                                        <div className={styles.liveBadge}>LIVE</div>
-                                        <span>RGN Live Prep</span>
-                                    </div>
-                                    <div className={styles.placeholderIcon}>
-                                        <Video size={64} />
-                                    </div>
-                                </Card>
-
-                                <div className={styles.stats}>
-                                    <Card glass className={styles.statCard}>
-                                        <Users size={24} color="var(--primary)" />
-                                        <div>
-                                            <h4>128</h4>
-                                            <span>Online Students</span>
-                                        </div>
-                                    </Card>
-                                    <Card glass className={styles.statCard}>
-                                        <Trophy size={24} color="#FFD700" />
-                                        <div>
-                                            <h4>#1 Ranking</h4>
-                                            <span>Kwadwo Mensah</span>
+                        {activeTab === "live" && (
+                            isAdmin ? (
+                                <div className={styles.adminTools}>
+                                    <QuizGenerator />
+                                    <Card className={styles.activityCard} title="Class Activity Rankings">
+                                        <div className={styles.rankingList}>
+                                            <div className={styles.rankingItem}>
+                                                <Trophy size={20} color="#FFD700" />
+                                                <span>Kwadwo Mensah</span>
+                                                <span className={styles.points}>42 pts</span>
+                                            </div>
+                                            <div className={styles.rankingItem}>
+                                                <Trophy size={20} color="#C0C0C0" />
+                                                <span>Ama Serwaa</span>
+                                                <span className={styles.points}>38 pts</span>
+                                            </div>
                                         </div>
                                     </Card>
                                 </div>
+                            ) : (
+                                <div className={styles.studentView}>
+                                    <Card className={styles.videoPlayer}>
+                                        <div className={styles.videoOverlay}>
+                                            <div className={styles.liveBadge}>LIVE</div>
+                                            <span>RGN Live Prep</span>
+                                        </div>
+                                        <div className={styles.placeholderIcon}>
+                                            <Video size={64} />
+                                        </div>
+                                    </Card>
+
+                                    <div className={styles.stats}>
+                                        <Card glass className={styles.statCard}>
+                                            <Users size={24} color="var(--primary)" />
+                                            <div>
+                                                <h4>128</h4>
+                                                <span>Online Students</span>
+                                            </div>
+                                        </Card>
+                                        <Card glass className={styles.statCard}>
+                                            <Trophy size={24} color="#FFD700" />
+                                            <div>
+                                                <h4>#1 Ranking</h4>
+                                                <span>Kwadwo Mensah</span>
+                                            </div>
+                                        </Card>
+                                    </div>
+                                </div>
+                            )
+                        )}
+
+                        {activeTab === "quizzes" && (
+                            <div className={styles.quizSection}>
+                                <QuizPlayer quiz={[]} />
                             </div>
+                        )}
+
+                        {activeTab === "overview" && (
+                            <div className={styles.overviewSection}>
+                                <Card title="Course Progress">
+                                    <p>Your overall progress in RGN Preparation: 65%</p>
+                                </Card>
+                            </div>
+                        )}
+
+                        {activeTab === "students" && isAdmin && (
+                            <Card title="Student Management">
+                                <p>Manage your students and their progress here.</p>
+                            </Card>
                         )}
                     </div>
 
