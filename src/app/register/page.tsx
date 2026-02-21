@@ -42,9 +42,9 @@ export default function RegisterPage() {
 
             if (signUpError) throw signUpError;
 
-            // Creating initial profile record is usually handled by Supabase triggers (SQL),
-            // but for this demo, we can assume it's set up or just redirect.
+            // Since email confirmation is disabled, session should be available immediately
             router.push("/dashboard");
+            router.refresh(); // Refresh to ensure useAuth hook picks up the new session
         } catch (err: any) {
             setError(err.message || "Failed to sign up");
         } finally {
