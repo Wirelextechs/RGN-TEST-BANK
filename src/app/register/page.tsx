@@ -9,11 +9,16 @@ import Link from "next/link";
 import styles from "../login/login.module.css";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { NURSING_SCHOOLS } from "@/lib/schools";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { GraduationCap } from "lucide-react";
 
 export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
+    const [school, setSchool] = useState("");
+    const [customSchool, setCustomSchool] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
@@ -30,6 +35,7 @@ export default function RegisterPage() {
                 options: {
                     data: {
                         full_name: fullName,
+                        school: school === "Other / Not Listed" ? customSchool : school,
                     }
                 }
             });
@@ -87,6 +93,27 @@ export default function RegisterPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                     />
+
+                    <SearchableSelect
+                        label="Nursing Institution"
+                        options={NURSING_SCHOOLS}
+                        value={school}
+                        onChange={setSchool}
+                        placeholder="Select your training college"
+                        required
+                    />
+
+                    {school === "Other / Not Listed" && (
+                        <Input
+                            label="Specify School"
+                            type="text"
+                            placeholder="Enter your school name"
+                            icon={<GraduationCap size={18} />}
+                            value={customSchool}
+                            onChange={(e) => setCustomSchool(e.target.value)}
+                            required
+                        />
+                    )}
 
                     {error && <div className={styles.error}>{error}</div>}
 

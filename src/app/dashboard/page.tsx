@@ -14,7 +14,9 @@ import {
     Video,
     Settings,
     Bell,
-    Trophy
+    Trophy,
+    GraduationCap,
+    School
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
@@ -25,12 +27,37 @@ export default function DashboardPage() {
     const { user, profile, loading, signOut } = useAuth();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("live");
+    const [schoolStats, setSchoolStats] = useState<{ school: string, count: number }[]>([]);
 
     useEffect(() => {
         if (!loading && !user) {
             router.push("/login");
         }
-    }, [user, loading, router]);
+
+        if (profile?.role === "admin") {
+            fetchSchoolStats();
+        }
+    }, [user, loading, router, profile]);
+
+    const fetchSchoolStats = async () => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('school')
+            .not('school', 'is', null);
+
+        if (data) {
+            const stats = data.reduce((acc: any, curr: any) => {
+                acc[curr.school] = (acc[curr.school] || 0) + 1;
+                return acc;
+            }, {});
+
+            const sortedStats = Object.entries(stats)
+                .map(([school, count]) => ({ school, count: count as number }))
+                .sort((a, b) => b.count - a.count);
+
+            setSchoolStats(sortedStats);
+        }
+    };
 
     if (loading || !user || !profile) {
         return (
@@ -84,6 +111,14 @@ export default function DashboardPage() {
                         >
                             <Users size={20} />
                             <span>Students</span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
+                            onClick={() => setActiveTab("impact")}
+                        >
+                            <School size={20} />
+                            <span>Impact</span>
                         </Button>
                     )}
                 </nav>
@@ -187,6 +222,36 @@ export default function DashboardPage() {
                             <Card title="Student Management">
                                 <p>Manage your students and their progress here.</p>
                             </Card>
+                        )}
+
+                        {activeTab === "impact" && isAdmin && (
+                            <div className={styles.impactSection}>
+                                <Card title="Platform Impact by School">
+                                    <div className={styles.statsGrid}>
+                                        {schoolStats.length > 0 ? (
+                                            schoolStats.map((stat, index) => (
+                                                <div key={index} className={styles.impactCard}>
+                                                    <div className={styles.impactInfo}>
+                                                        <GraduationCap size={24} className={styles.impactIcon} />
+                                                        <div className={styles.impactDetails}>
+                                                            <span className={styles.schoolName}>{stat.school}</span>
+                                                            <span className={styles.studentCount}>{stat.count} {stat.count === 1 ? 'Student' : 'Students'}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className={styles.impactBar}>
+                                                        <div
+                                                            className={styles.impactProgress}
+                                                            style={{ width: `${(stat.count / schoolStats[0].count) * 100}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className={styles.noData}>No data available yet</div>
+                                        )}
+                                    </div>
+                                </Card>
+                            </div>
                         )}
                     </div>
 
