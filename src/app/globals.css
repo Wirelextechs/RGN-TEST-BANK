@@ -1,37 +1,40 @@
 :root {
-  --background: #f8fafc;
+  --background: #ffffff;
   --foreground: #0f172a;
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
+  --primary: #13603b;
+  /* NMC Deep Green */
+  --primary-hover: #0e4d2f;
   --secondary: #64748b;
-  --accent: #8b5cf6;
-  --accent-hover: #7c3aed;
+  --accent: #daa520;
+  /* NMC Gold */
+  --accent-hover: #b8860b;
   --card: #ffffff;
   --card-foreground: #0f172a;
-  --border: #e2e8f0;
-  --muted: #f1f5f9;
+  --border: #eef2f6;
+  --muted: #f8fafc;
   --muted-foreground: #64748b;
   --error: #ef4444;
-  --success: #22c55e;
-  
-  --radius: 0.75rem;
+  --success: #13603b;
+
+  --radius: 0.5rem;
+  /* Neater, tighter corners */
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 }
 
 [data-theme='dark'] {
-  --background: #0f172a;
+  --background: #0a0f0d;
   --foreground: #f8fafc;
-  --primary: #60a5fa;
-  --primary-hover: #3b82f6;
+  --primary: #1a8351;
+  --primary-hover: #13603b;
   --secondary: #94a3b8;
-  --accent: #a78bfa;
-  --accent-hover: #8b5cf6;
-  --card: #1e293b;
+  --accent: #daa520;
+  --accent-hover: #b8860b;
+  --card: #121a16;
   --card-foreground: #f8fafc;
-  --border: #334155;
-  --muted: #1e293b;
+  --border: #1e2923;
+  --muted: #121a16;
   --muted-foreground: #94a3b8;
 }
 
@@ -77,8 +80,15 @@ button {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
@@ -86,8 +96,15 @@ button {
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .animate-scale-in {
