@@ -16,6 +16,7 @@ import {
     Bell,
     Trophy
 } from "lucide-react";
+import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image";
