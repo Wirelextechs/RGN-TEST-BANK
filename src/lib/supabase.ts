@@ -9,6 +9,7 @@ export type Profile = {
     id: string;
     role: 'admin' | 'student';
     full_name: string;
+    school?: string;
     avatar_url?: string;
     is_locked: boolean;
     is_hand_raised: boolean;

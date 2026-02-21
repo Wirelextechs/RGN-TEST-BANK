@@ -31,15 +31,29 @@ export function useAuth() {
 
         // Listen for changes on auth state (sign in, sign out, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setUser(session?.user ?? null);
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
 
-            if (session?.user) {
-                const { data } = await supabase
+            if (currentUser) {
+                const { data, error } = await supabase
                     .from("profiles")
                     .select("*")
-                    .eq("id", session.user.id)
+                    .eq("id", currentUser.id)
                     .single();
-                setProfile(data);
+
+                if (data) {
+                    setProfile(data);
+                } else {
+                    // Fallback: Create a temporary profile from user metadata if DB record isn't ready
+                    setProfile({
+                        id: currentUser.id,
+                        full_name: currentUser.user_metadata?.full_name || "User",
+                        role: currentUser.user_metadata?.role || "student",
+                        school: currentUser.user_metadata?.school || "",
+                        is_locked: false,
+                        is_hand_raised: false
+                    } as Profile);
+                }
             } else {
                 setProfile(null);
             }

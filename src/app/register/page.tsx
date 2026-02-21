@@ -42,6 +42,18 @@ export default function RegisterPage() {
 
             if (signUpError) throw signUpError;
 
+            // Hasten record creation by explicitly inserting the profile
+            if (data?.user) {
+                await supabase.from("profiles").upsert({
+                    id: data.user.id,
+                    full_name: fullName,
+                    role: "student",
+                    school: school === "Other / Not Listed" ? customSchool : school,
+                    is_locked: false,
+                    is_hand_raised: false
+                });
+            }
+
             // Since email confirmation is disabled, session should be available immediately
             router.push("/dashboard");
             router.refresh(); // Refresh to ensure useAuth hook picks up the new session
