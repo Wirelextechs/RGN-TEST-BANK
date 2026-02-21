@@ -2,15 +2,38 @@
     display: flex;
     height: 100vh;
     background: var(--background);
+    flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+    .container {
+        flex-direction: row;
+    }
 }
 
 .sidebar {
-    width: 260px;
-    border-right: 1px solid var(--border);
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
     display: flex;
-    flex-direction: column;
-    padding: 1.5rem;
+    flex-direction: row;
+    padding: 0.75rem 1.25rem;
     background: var(--card);
+    align-items: center;
+    justify-content: space-between;
+    z-index: 50;
+}
+
+@media (min-width: 1024px) {
+    .sidebar {
+        width: 260px;
+        height: 100vh;
+        border-right: 1px solid var(--border);
+        border-bottom: none;
+        flex-direction: column;
+        padding: 1.5rem;
+        justify-content: flex-start;
+    }
 }
 
 .brandLogo {
@@ -23,15 +46,47 @@
     align-items: center;
     gap: 0.75rem;
     font-weight: 800;
-    font-size: 1.1rem;
-    margin-bottom: 2.5rem;
+    font-size: var(--font-base);
+    margin-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+    .logo {
+        margin-bottom: 2.5rem;
+    }
 }
 
 .nav {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: none;
+    flex-direction: row;
     gap: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+    .nav {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+    }
+}
+
+.mobileNav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 0.5rem;
+    justify-content: space-around;
+    z-index: 100;
+}
+
+@media (min-width: 1024px) {
+    .mobileNav {
+        display: none;
+    }
 }
 
 .navItem {
@@ -64,7 +119,7 @@
 }
 
 .header {
-    padding: 1.25rem 2rem;
+    padding: 1rem 1.25rem;
     border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
@@ -72,13 +127,19 @@
     background: var(--card);
 }
 
+@media (min-width: 1024px) {
+    .header {
+        padding: 1.25rem 2rem;
+    }
+}
+
 .headerInfo h1 {
-    font-size: 1.25rem;
+    font-size: var(--font-base);
     font-weight: 700;
 }
 
 .headerInfo p {
-    font-size: 0.875rem;
+    font-size: var(--font-xs);
     color: var(--secondary);
 }
 
@@ -333,12 +394,26 @@
     }
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
     .contentGrid {
         grid-template-columns: 1fr;
+        padding: 1.25rem;
+        gap: 1.25rem;
+        margin-bottom: 4rem;
+        /* For mobile nav */
     }
 
-    .chatSection {
-        height: 600px;
+    .sidebarFooter {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .headerInfo p {
+        display: none;
+    }
+
+    .logo span {
+        display: none;
     }
 }

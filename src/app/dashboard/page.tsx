@@ -138,6 +138,37 @@ export default function DashboardPage() {
                 </div>
             </aside>
 
+            <nav className={styles.mobileNav}>
+                <Button
+                    variant="ghost"
+                    className={`${styles.navItem} ${activeTab === "overview" ? styles.active : ""}`}
+                    onClick={() => setActiveTab("overview")}
+                >
+                    <LayoutDashboard size={20} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    className={`${styles.navItem} ${activeTab === "live" ? styles.active : ""}`}
+                    onClick={() => setActiveTab("live")}
+                >
+                    <Video size={20} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    className={`${styles.navItem} ${activeTab === "quizzes" ? styles.active : ""}`}
+                    onClick={() => setActiveTab("quizzes")}
+                >
+                    <FileEdit size={20} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
+                    onClick={() => setActiveTab("impact")}
+                >
+                    <School size={20} />
+                </Button>
+            </nav>
+
             <main className={styles.main}>
                 <header className={styles.header}>
                     <div className={styles.headerInfo}>

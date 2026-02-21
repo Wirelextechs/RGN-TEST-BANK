@@ -166,3 +166,34 @@
         transform: translateY(0);
     }
 }
+
+@media (max-width: 768px) {
+    .dropdown {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 0;
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .optionsList {
+        max-height: none;
+        flex: 1;
+    }
+
+    .searchWrapper {
+        padding: 1rem;
+    }
+
+    .searchInput {
+        font-size: 1rem;
+    }
+
+    .optionItem {
+        padding: 1rem;
+    }
+}

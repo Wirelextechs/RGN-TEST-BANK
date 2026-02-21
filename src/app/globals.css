@@ -21,6 +21,21 @@
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+
+  /* Fluid Typography */
+  --font-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.8rem);
+  --font-sm: clamp(0.8rem, 0.75rem + 0.25vw, 0.95rem);
+  --font-base: clamp(0.95rem, 0.9rem + 0.25vw, 1.1rem);
+  --font-lg: clamp(1.1rem, 1rem + 0.5vw, 1.35rem);
+  --font-xl: clamp(1.35rem, 1.25rem + 1vw, 2rem);
+  --font-2xl: clamp(2rem, 1.75rem + 2vw, 3.5rem);
+  --font-3xl: clamp(3rem, 2.5rem + 4vw, 5rem);
+
+  /* Breakpoints */
+  --mobile: 480px;
+  --tablet: 768px;
+  --laptop: 1024px;
+  --desktop: 1280px;
 }
 
 [data-theme='dark'] {
