@@ -203,16 +203,54 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 0.75rem;
+    padding: 0.75rem 1rem;
     background: var(--muted);
     border-radius: var(--radius);
-    font-weight: 600;
+    transition: transform 0.2s ease;
+}
+
+.rankingItem:hover {
+    transform: translateX(4px);
+    background: rgba(19, 96, 59, 0.05);
+}
+
+.rankBadge {
+    width: 28px;
+    height: 28px;
+    background: var(--card);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--secondary);
+    border: 1px solid var(--border);
+}
+
+.studentInfo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.studentName {
+    font-weight: 700;
+    color: var(--foreground);
+    font-size: 0.9375rem;
+}
+
+.studentSchool {
+    font-size: 0.75rem;
+    color: var(--secondary);
+    font-weight: 500;
 }
 
 .points {
     margin-left: auto;
     color: var(--primary);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
+    font-weight: 800;
 }
 
 .studentView {

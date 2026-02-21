@@ -32,7 +32,8 @@ export function useAuth() {
                     role: currentUser.user_metadata?.role || "student",
                     school: currentUser.user_metadata?.school || "",
                     is_locked: false,
-                    is_hand_raised: false
+                    is_hand_raised: false,
+                    points: 0
                 } as Profile);
             }
         };

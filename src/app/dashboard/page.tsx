@@ -24,7 +24,7 @@ import {
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, Profile } from "@/lib/supabase";
 import Image from "next/image";
 
 export default function DashboardPage() {
@@ -32,6 +32,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("live");
     const [schoolStats, setSchoolStats] = useState<{ school: string, count: number }[]>([]);
+    const [topStudents, setTopStudents] = useState<Profile[]>([]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -41,6 +42,7 @@ export default function DashboardPage() {
         if (profile?.role === "admin") {
             fetchSchoolStats();
         }
+        fetchTopStudents();
     }, [user, loading, router, profile]);
 
     const fetchSchoolStats = async () => {
@@ -60,6 +62,19 @@ export default function DashboardPage() {
                 .sort((a, b) => b.count - a.count);
 
             setSchoolStats(sortedStats);
+        }
+    };
+
+    const fetchTopStudents = async () => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'student')
+            .order('points', { ascending: false })
+            .limit(10);
+
+        if (data) {
+            setTopStudents(data);
         }
     };
 
@@ -216,18 +231,23 @@ export default function DashboardPage() {
                             isAdmin ? (
                                 <div className={styles.adminTools}>
                                     <QuizGenerator />
-                                    <Card className={styles.activityCard} title="Class Activity Rankings">
+                                    <Card className={styles.activityCard} title="Top 10 Active Students">
                                         <div className={styles.rankingList}>
-                                            <div className={styles.rankingItem}>
-                                                <Trophy size={20} color="#FFD700" />
-                                                <span>Kwadwo Mensah</span>
-                                                <span className={styles.points}>42 pts</span>
-                                            </div>
-                                            <div className={styles.rankingItem}>
-                                                <Trophy size={20} color="#C0C0C0" />
-                                                <span>Ama Serwaa</span>
-                                                <span className={styles.points}>38 pts</span>
-                                            </div>
+                                            {topStudents.map((student, index) => (
+                                                <div key={student.id} className={styles.rankingItem}>
+                                                    <div className={styles.rankBadge}>
+                                                        {index === 0 ? <Trophy size={16} color="#FFD700" /> : index + 1}
+                                                    </div>
+                                                    <div className={styles.studentInfo}>
+                                                        <span className={styles.studentName}>{student.full_name}</span>
+                                                        <span className={styles.studentSchool}>{student.school}</span>
+                                                    </div>
+                                                    <span className={styles.points}>{student.points} pts</span>
+                                                </div>
+                                            ))}
+                                            {topStudents.length === 0 && (
+                                                <div className={styles.noData}>No rankings yet</div>
+                                            )}
                                         </div>
                                     </Card>
                                 </div>
@@ -255,7 +275,26 @@ export default function DashboardPage() {
                                             <Trophy size={24} color="#FFD700" />
                                             <div>
                                                 <h4>#1 Ranking</h4>
-                                                <span>Kwadwo Mensah</span>
+                                                <span>{topStudents[0]?.full_name || "---"}</span>
+                                            </div>
+                                        </Card>
+                                    </div>
+
+                                    <div style={{ marginTop: '1.5rem' }}>
+                                        <Card title="Global Leaderboard (Top 10)">
+                                            <div className={styles.rankingList}>
+                                                {topStudents.map((student, index) => (
+                                                    <div key={student.id} className={styles.rankingItem}>
+                                                        <div className={styles.rankBadge}>
+                                                            {index === 0 ? <Trophy size={16} color="#FFD700" /> : index + 1}
+                                                        </div>
+                                                        <div className={styles.studentInfo}>
+                                                            <span className={styles.studentName}>{student.full_name}</span>
+                                                            <span className={styles.studentSchool}>{student.school}</span>
+                                                        </div>
+                                                        <span className={styles.points}>{student.points} pts</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </Card>
                                     </div>
