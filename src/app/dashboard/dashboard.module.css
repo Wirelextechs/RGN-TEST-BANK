@@ -43,7 +43,7 @@
 }
 
 .active {
-    background: var(--muted) !important;
+    background: rgba(19, 96, 59, 0.05) !important;
     color: var(--primary) !important;
 }
 
@@ -197,7 +197,7 @@
 
 .impactIcon {
     color: var(--primary);
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(19, 96, 59, 0.1);
     padding: 0.5rem;
     border-radius: 8px;
     width: 42px;

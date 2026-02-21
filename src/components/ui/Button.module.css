@@ -28,7 +28,7 @@
 
 .primary:hover:not(:disabled) {
     background: var(--primary-hover);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(19, 96, 59, 0.2);
 }
 
 .secondary {
