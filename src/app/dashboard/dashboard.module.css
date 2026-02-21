@@ -417,3 +417,43 @@
         display: none;
     }
 }
+
+.settingsGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.settingsItem {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0;
+}
+
+.settingsIcon {
+    width: 40px;
+    height: 40px;
+    background: rgba(19, 96, 59, 0.05);
+    color: var(--primary);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settingsInfo label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    margin-bottom: 0.125rem;
+}
+
+.settingsInfo p {
+    font-weight: 600;
+    color: var(--foreground);
+    margin: 0;
+}

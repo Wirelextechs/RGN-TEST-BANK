@@ -16,7 +16,10 @@ import {
     Bell,
     Trophy,
     GraduationCap,
-    School
+    School,
+    User as UserIcon,
+    Shield,
+    BellRing
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
@@ -127,7 +130,11 @@ export default function DashboardPage() {
                 </nav>
 
                 <div className={styles.sidebarFooter}>
-                    <Button variant="ghost" className={styles.navItem}>
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("settings")}
+                    >
                         <Settings size={20} />
                         <span>Settings</span>
                     </Button>
@@ -178,6 +185,13 @@ export default function DashboardPage() {
                         <School size={20} />
                     </Button>
                 )}
+                <Button
+                    variant="ghost"
+                    className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}
+                    onClick={() => setActiveTab("settings")}
+                >
+                    <Settings size={20} />
+                </Button>
             </nav>
 
             <main className={styles.main}>
@@ -296,6 +310,65 @@ export default function DashboardPage() {
                                         )}
                                     </div>
                                 </Card>
+                            </div>
+                        )}
+
+                        {activeTab === "settings" && (
+                            <div className={styles.overviewSection}>
+                                <Card title="Account Settings">
+                                    <div className={styles.settingsGrid}>
+                                        <div className={styles.settingsItem}>
+                                            <div className={styles.settingsIcon}>
+                                                <UserIcon size={20} />
+                                            </div>
+                                            <div className={styles.settingsInfo}>
+                                                <label>Full Name</label>
+                                                <p>{profile.full_name}</p>
+                                            </div>
+                                        </div>
+                                        <div className={styles.settingsItem}>
+                                            <div className={styles.settingsIcon}>
+                                                <School size={20} />
+                                            </div>
+                                            <div className={styles.settingsInfo}>
+                                                <label>School</label>
+                                                <p>{profile.school || "Not Specified"}</p>
+                                            </div>
+                                        </div>
+                                        <div className={styles.settingsItem}>
+                                            <div className={styles.settingsIcon}>
+                                                <Shield size={20} />
+                                            </div>
+                                            <div className={styles.settingsInfo}>
+                                                <label>Account Role</label>
+                                                <p style={{ textTransform: 'capitalize' }}>{profile.role}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <Card title="Preferences">
+                                        <div className={styles.settingsGrid}>
+                                            <div className={styles.settingsItem}>
+                                                <div className={styles.settingsIcon}>
+                                                    <BellRing size={20} />
+                                                </div>
+                                                <div className={styles.settingsInfo}>
+                                                    <label>Notifications</label>
+                                                    <p>In-app alerts are enabled</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </div>
+
+                                <div style={{ marginTop: '2rem' }}>
+                                    <Button variant="error" onClick={signOut} style={{ width: '100%' }}>
+                                        <LogOut size={18} style={{ marginRight: '0.5rem' }} />
+                                        Log Out from this Device
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </div>
