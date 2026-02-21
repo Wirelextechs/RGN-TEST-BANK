@@ -21,6 +21,7 @@ import {
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 
 export default function DashboardPage() {
