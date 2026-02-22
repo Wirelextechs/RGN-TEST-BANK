@@ -91,9 +91,22 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
 
         const chatChannel = supabase
             .channel("live-chat")
-            .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+            .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
                 if (isToday) {
-                    setMessages((prev) => [...prev, payload.new as Message]);
+                    const newMessage = payload.new as Message;
+
+                    // Enrich with profile info for badges
+                    const { data: profileData } = await supabase
+                        .from("profiles")
+                        .select("full_name, role")
+                        .eq("id", newMessage.user_id)
+                        .single();
+
+                    if (profileData) {
+                        newMessage.profiles = profileData;
+                    }
+
+                    setMessages((prev) => [...prev, newMessage]);
                     // Auto-update last_read_at on new messages
                     supabase
                         .from("profiles")
