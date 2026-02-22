@@ -39,15 +39,18 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!loading && !user) {
             router.push("/login");
+            return;
         }
 
-        if (profile?.role === "admin") {
-            fetchSchoolStats();
-            fetchAllStudents();
-            fetchRaisedHands();
+        if (profile) {
+            if (profile.role === "admin") {
+                fetchSchoolStats();
+                fetchAllStudents();
+                fetchRaisedHands();
+            }
+            fetchTopStudents();
         }
-        fetchTopStudents();
-    }, [user, loading, router, profile]);
+    }, [user, loading, router, profile?.role, profile?.id]);
 
     const fetchSchoolStats = async () => {
         const { data, error } = await supabase

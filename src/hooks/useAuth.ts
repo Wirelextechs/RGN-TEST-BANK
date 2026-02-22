@@ -16,16 +16,21 @@ export function useAuth() {
          * have a profile object even if the database sync is slightly delayed.
          */
         const fetchProfile = async (currentUser: User) => {
-            const { data } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", currentUser.id)
-                .single();
+            try {
+                const { data, error } = await supabase
+                    .from("profiles")
+                    .select("*")
+                    .eq("id", currentUser.id)
+                    .single();
 
-            if (data) {
-                setProfile(data);
-            } else {
-                // Synthesize from metadata
+                if (data) {
+                    setProfile(data);
+                } else {
+                    throw new Error("Profile not found");
+                }
+            } catch (err) {
+                console.warn("Profile fetch failed, using fallback:", err);
+                // Synthesize from metadata if record missing/delayed
                 setProfile({
                     id: currentUser.id,
                     full_name: currentUser.user_metadata?.full_name || "User",
@@ -39,30 +44,38 @@ export function useAuth() {
         };
 
         const getSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const currentUser = session?.user ?? null;
-            setUser(currentUser);
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const currentUser = session?.user ?? null;
+                setUser(currentUser);
 
-            if (currentUser) {
-                await fetchProfile(currentUser);
+                if (currentUser) {
+                    await fetchProfile(currentUser);
+                }
+            } catch (err) {
+                console.error("Session fetch error:", err);
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(false);
         };
 
         getSession();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            const currentUser = session?.user ?? null;
-            setUser(currentUser);
+            try {
+                const currentUser = session?.user ?? null;
+                setUser(currentUser);
 
-            if (currentUser) {
-                await fetchProfile(currentUser);
-            } else {
-                setProfile(null);
+                if (currentUser) {
+                    await fetchProfile(currentUser);
+                } else {
+                    setProfile(null);
+                }
+            } catch (err) {
+                console.error("Auth state change error:", err);
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(false);
         });
 
         return () => subscription.unsubscribe();
