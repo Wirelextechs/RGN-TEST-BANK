@@ -295,11 +295,63 @@
 
 .quizSection,
 .overviewSection,
-.impactSection {
+.impactSection,
+.studentSection {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     animation: fadeIn 0.3s ease-out;
+}
+
+.roleBadge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 0.5rem;
+}
+
+.studentBadge {
+    background: rgba(19, 96, 59, 0.1);
+    color: var(--primary);
+}
+
+.taBadge {
+    background: #7c3aed33;
+    color: #7c3aed;
+    border: 1px solid #7c3aed33;
+}
+
+.promoteBtn {
+    background: var(--primary) !important;
+    color: white !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+}
+
+.demoteBtn {
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: #ef4444 !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+.promoteBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(19, 96, 59, 0.2);
+}
+
+.demoteBtn:hover {
+    background: #ef4444 !important;
+    color: white !important;
 }
 
 .statsGrid {

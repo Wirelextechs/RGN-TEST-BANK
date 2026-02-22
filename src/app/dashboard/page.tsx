@@ -120,7 +120,7 @@ export default function DashboardPage() {
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .eq('role', 'student')
+            .in('role', ['student', 'ta'])
             .order('full_name', { ascending: true });
 
         if (data) {
@@ -561,7 +561,12 @@ export default function DashboardPage() {
                                                 {student.full_name.substring(0, 1)}
                                             </div>
                                             <div className={styles.studentInfo}>
-                                                <span className={styles.studentName}>{student.full_name}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span className={styles.studentName}>{student.full_name}</span>
+                                                    <span className={`${styles.roleBadge} ${student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
+                                                        {student.role === 'ta' ? 'T.A.' : 'Student'}
+                                                    </span>
+                                                </div>
                                                 <span className={styles.studentSchool}>{student.school}</span>
                                             </div>
                                             <div className={styles.studentRole}>
@@ -570,7 +575,7 @@ export default function DashboardPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        style={{ fontSize: '10px', marginTop: '4px', height: '24px' }}
+                                                        className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
                                                         disabled={updatingUserId === student.id}
                                                         onClick={async () => {
                                                             setUpdatingUserId(student.id);
@@ -579,11 +584,17 @@ export default function DashboardPage() {
                                                                 .from('profiles')
                                                                 .update({ role: newRole })
                                                                 .eq('id', student.id);
-                                                            if (!error) fetchAllStudents();
+
+                                                            if (error) {
+                                                                console.error("Promotion error:", error);
+                                                                alert(`Could not update role. This is likely due to a database constraint. Please check your Supabase SQL Editor.`);
+                                                            } else {
+                                                                fetchAllStudents();
+                                                            }
                                                             setUpdatingUserId(null);
                                                         }}
                                                     >
-                                                        {student.role === 'student' ? "Promote to T.A." : "Demote to Student"}
+                                                        {student.role === 'student' ? "Promote to T.A." : "Demote"}
                                                     </Button>
                                                 )}
                                             </div>
