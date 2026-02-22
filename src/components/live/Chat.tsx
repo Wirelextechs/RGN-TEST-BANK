@@ -125,16 +125,21 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
     }, [selectedDate, userProfile.id]);
 
     useEffect(() => {
-        if (scrollRef.current && !showJumpBtn) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        const scrollContainer = scrollRef.current;
+        if (scrollContainer && !showJumpBtn) {
+            // Smoothly scroll to bottom on new messages
+            scrollContainer.scrollTo({
+                top: scrollContainer.scrollHeight,
+                behavior: 'smooth'
+            });
         }
-    }, [messages, showJumpBtn]);
+    }, [messages.length]); // Only snap when message count changes
 
     const handleScroll = () => {
         if (scrollRef.current) {
             const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-            // Show button if user scrolls up more than 300px from bottom
-            setShowJumpBtn(scrollHeight - scrollTop - clientHeight > 300);
+            const isBottom = scrollHeight - scrollTop - clientHeight < 100;
+            setShowJumpBtn(!isBottom);
         }
     };
 
