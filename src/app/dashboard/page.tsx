@@ -144,6 +144,8 @@ export default function DashboardPage() {
         );
     }
 
+    const isAdmin = profile.role === "admin";
+
     return (
         <div className={styles.container}>
             <aside className={styles.sidebar}>
