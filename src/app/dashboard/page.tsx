@@ -43,12 +43,32 @@ export default function DashboardPage() {
         }
 
         if (profile) {
-            if (profile.role === "admin") {
-                fetchSchoolStats();
-                fetchAllStudents();
-                fetchRaisedHands();
-            }
-            fetchTopStudents();
+            const fetchData = () => {
+                if (profile.role === "admin") {
+                    fetchSchoolStats();
+                    fetchAllStudents();
+                    fetchRaisedHands();
+                }
+                fetchTopStudents();
+            };
+
+            fetchData();
+
+            // Real-time subscription for profile changes (Hand raising, Points, etc.)
+            const profileChanges = supabase
+                .channel('admin-dashboard-sync')
+                .on('postgres_changes',
+                    { event: '*', schema: 'public', table: 'profiles' },
+                    () => {
+                        // Re-fetch data on any profile change to keep dashboard live
+                        fetchData();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(profileChanges);
+            };
         }
     }, [user, loading, router, profile?.role, profile?.id]);
 

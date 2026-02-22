@@ -46,30 +46,58 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             )
             .subscribe();
 
-        // Initial fetch of messages for selected date
+        // Initial fetch of messages (Persistent "WhatsApp" style)
         const fetchMessages = async () => {
-            const startOfDay = `${selectedDate}T00:00:00.000Z`;
-            const endOfDay = `${selectedDate}T23:59:59.999Z`;
+            const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
-            const { data } = await supabase
+            let query = supabase
                 .from("messages")
-                .select("*, profiles(full_name)")
-                .gte("created_at", startOfDay)
-                .lte("created_at", endOfDay)
-                .order("created_at", { ascending: true });
-            if (data) setMessages(data as any);
+                .select("*, profiles(full_name)");
+
+            if (isToday) {
+                // Load at least 20 messages, or all since last_read_at
+                const lastRead = userProfile.last_read_at || new Date(0).toISOString();
+
+                const { data } = await query
+                    .order("created_at", { ascending: false })
+                    .limit(50); // Get latest 50 for immediate context
+
+                if (data) setMessages(data.reverse() as any);
+            } else {
+                // Historical archive view
+                const startOfDay = `${selectedDate}T00:00:00.000Z`;
+                const endOfDay = `${selectedDate}T23:59:59.999Z`;
+                const { data } = await query
+                    .gte("created_at", startOfDay)
+                    .lte("created_at", endOfDay)
+                    .order("created_at", { ascending: true });
+                if (data) setMessages(data as any);
+            }
         };
 
         fetchMessages();
 
-        // Subscribe to new messages (only relevant for today)
+        // Update last_read_at when viewing today's chat
         const isToday = selectedDate === new Date().toISOString().split('T')[0];
+        if (isToday) {
+            supabase
+                .from("profiles")
+                .update({ last_read_at: new Date().toISOString() })
+                .eq("id", userProfile.id)
+                .then(() => { });
+        }
 
         const chatChannel = supabase
             .channel("live-chat")
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
                 if (isToday) {
                     setMessages((prev) => [...prev, payload.new as Message]);
+                    // Auto-update last_read_at on new messages
+                    supabase
+                        .from("profiles")
+                        .update({ last_read_at: new Date().toISOString() })
+                        .eq("id", userProfile.id)
+                        .then(() => { });
                 }
             })
             .subscribe();
@@ -78,7 +106,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             supabase.removeChannel(settingsChannel);
             supabase.removeChannel(chatChannel);
         };
-    }, [selectedDate]);
+    }, [selectedDate, userProfile.id]);
 
     useEffect(() => {
         if (scrollRef.current) {
