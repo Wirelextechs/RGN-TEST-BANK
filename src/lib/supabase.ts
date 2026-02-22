@@ -22,4 +22,5 @@ export type Message = {
     content: string;
     created_at: string;
     reactions: Record<string, string[]>; // { emoji: [user_id1, user_id2] }
+    profiles?: { full_name: string };
 };

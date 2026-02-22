@@ -129,7 +129,20 @@ export default function DashboardPage() {
         );
     }
 
-    const isAdmin = profile.role === "admin";
+    if (profile.is_locked) {
+        return (
+            <div className={styles.loading}>
+                <Shield size={48} color="var(--error)" />
+                <h1 style={{ marginTop: '1rem' }}>Account Restricted</h1>
+                <p style={{ maxWidth: '400px', textAlign: 'center', opacity: 0.8 }}>
+                    Your access to the RGN Test Bank has been limited. Please contact support if you believe this is an error.
+                </p>
+                <Button onClick={signOut} variant="outline" style={{ marginTop: '1.5rem' }}>
+                    Sign Out
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.container}>

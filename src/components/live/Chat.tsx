@@ -53,11 +53,11 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
 
             const { data } = await supabase
                 .from("messages")
-                .select("*")
+                .select("*, profiles(full_name)")
                 .gte("created_at", startOfDay)
                 .lte("created_at", endOfDay)
                 .order("created_at", { ascending: true });
-            if (data) setMessages(data);
+            if (data) setMessages(data as any);
         };
 
         fetchMessages();
@@ -103,6 +103,10 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             .from("profiles")
             .update({ is_hand_raised: !userProfile.is_hand_raised })
             .eq("id", userProfile.id);
+        if (error) {
+            console.error("Error toggling hand raised status:", error);
+            alert("Failed to update hand raised status.");
+        }
     };
 
     return (
@@ -127,14 +131,21 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                             variant={isChatLocked ? "error" : "outline"}
                             size="sm"
                             onClick={async () => {
-                                const newLockState = !isChatLocked;
-                                // Optimistic UI update
-                                setIsChatLocked(newLockState);
+                                try {
+                                    const newLockState = !isChatLocked;
+                                    setIsChatLocked(newLockState);
 
-                                await supabase
-                                    .from("platform_settings")
-                                    .update({ value: { is_locked: newLockState } })
-                                    .eq("key", "chat_lock");
+                                    const { error } = await supabase
+                                        .from("platform_settings")
+                                        .update({ value: { is_locked: newLockState } })
+                                        .eq("key", "chat_lock");
+
+                                    if (error) throw error;
+                                } catch (err: any) {
+                                    console.error("Lock toggle failed:", err);
+                                    setIsChatLocked(isChatLocked); // Revert
+                                    alert(`Failed to update lock: ${err.message || "Ensure you are an admin in the database profiles table."}`);
+                                }
                             }}
                             className={styles.lockBtn}
                         >
@@ -149,7 +160,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                 {messages.map((msg) => (
                     <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
                         <div className={styles.avatar}>
-                            {msg.user_id.substring(0, 2).toUpperCase()}
+                            {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || msg.user_id.substring(0, 1).toUpperCase()}
                         </div>
                         <div className={styles.contentWrapper}>
                             <div className={styles.msgContent}>{msg.content}</div>
