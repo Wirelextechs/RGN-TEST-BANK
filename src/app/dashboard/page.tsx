@@ -70,6 +70,9 @@ export default function DashboardPage() {
 
             setSchoolStats(sortedStats);
         }
+        if (error) {
+            console.error("Error fetching school stats:", error);
+        }
     };
 
     const fetchTopStudents = async () => {
@@ -83,6 +86,9 @@ export default function DashboardPage() {
         if (data) {
             setTopStudents(data);
         }
+        if (error) {
+            console.error("Error fetching top students:", error);
+        }
     };
 
     const fetchAllStudents = async () => {
@@ -95,6 +101,9 @@ export default function DashboardPage() {
         if (data) {
             setAllStudents(data);
         }
+        if (error) {
+            console.error("Error fetching all students:", error);
+        }
     };
 
     const fetchRaisedHands = async () => {
@@ -105,6 +114,9 @@ export default function DashboardPage() {
 
         if (data) {
             setRaisedHands(data);
+        }
+        if (error) {
+            console.error("Error fetching raised hands:", error);
         }
     };
 
