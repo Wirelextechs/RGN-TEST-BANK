@@ -61,7 +61,7 @@ export function useAuth() {
 
         getSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             try {
                 const currentUser = session?.user ?? null;
                 setUser(currentUser);
@@ -78,8 +78,28 @@ export function useAuth() {
             }
         });
 
-        return () => subscription.unsubscribe();
-    }, []);
+        // Real-time profile subscription
+        let profileSubscription: any = null;
+
+        const startProfileSubscription = (userId: string) => {
+            profileSubscription = supabase
+                .channel(`profile-updates-${userId}`)
+                .on('postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+                    (payload) => {
+                        setProfile(payload.new as Profile);
+                    }
+                )
+                .subscribe();
+        };
+
+        if (user) startProfileSubscription(user.id);
+
+        return () => {
+            authSubscription.unsubscribe();
+            if (profileSubscription) supabase.removeChannel(profileSubscription);
+        };
+    }, [user?.id]);
 
     const signOut = async () => {
         await supabase.auth.signOut();
