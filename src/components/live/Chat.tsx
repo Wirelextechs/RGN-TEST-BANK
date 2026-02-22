@@ -54,7 +54,7 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
 
             let query = supabase
                 .from("messages")
-                .select("*, profiles(full_name)");
+                .select("*, profiles(full_name, role)");
 
             if (isToday) {
                 // Load at least 20 messages, or all since last_read_at
