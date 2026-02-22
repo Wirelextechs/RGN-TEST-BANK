@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Send, Smile, Hand, Lock, Unlock, Hash } from "lucide-react";
+import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar } from "lucide-react";
 import styles from "./Chat.module.css";
 import { supabase, Message, Profile } from "@/lib/supabase";
 
@@ -17,33 +17,42 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [isChatLocked, setIsChatLocked] = useState(false);
-    const [raisedHands, setRaisedHands] = useState<string[]>([]);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Initial fetch of messages
+        // Initial fetch of messages for selected date
         const fetchMessages = async () => {
+            const startOfDay = `${selectedDate}T00:00:00.000Z`;
+            const endOfDay = `${selectedDate}T23:59:59.999Z`;
+
             const { data } = await supabase
                 .from("messages")
                 .select("*")
+                .gte("created_at", startOfDay)
+                .lte("created_at", endOfDay)
                 .order("created_at", { ascending: true });
             if (data) setMessages(data);
         };
 
         fetchMessages();
 
-        // Subscribe to new messages
+        // Subscribe to new messages (only relevant for today)
+        const isToday = selectedDate === new Date().toISOString().split('T')[0];
+
         const channel = supabase
             .channel("live-chat")
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
-                setMessages((prev) => [...prev, payload.new as Message]);
+                if (isToday) {
+                    setMessages((prev) => [...prev, payload.new as Message]);
+                }
             })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [selectedDate]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -75,18 +84,30 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             <div className={styles.chatHeader}>
                 <div className={styles.status}>
                     <div className={styles.onlineDot}></div>
-                    <span>Live Interaction</span>
+                    <span>{selectedDate === new Date().toISOString().split('T')[0] ? "Live Interaction" : "Archive"}</span>
                 </div>
-                {isAdmin && (
-                    <Button
-                        variant={isChatLocked ? "error" : "outline"}
-                        size="sm"
-                        onClick={() => setIsChatLocked(!isChatLocked)}
-                    >
-                        {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
-                        {isChatLocked ? "Chat Locked" : "Lock Chat"}
-                    </Button>
-                )}
+                <div className={styles.headerTools}>
+                    <div className={styles.datePicker}>
+                        <Calendar size={14} />
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                        />
+                    </div>
+                    {isAdmin && (
+                        <Button
+                            variant={isChatLocked ? "error" : "outline"}
+                            size="sm"
+                            onClick={() => setIsChatLocked(!isChatLocked)}
+                            className={styles.lockBtn}
+                        >
+                            {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                            <span>{isChatLocked ? "Locked" : "Lock"}</span>
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className={styles.messages} ref={scrollRef}>
@@ -129,13 +150,25 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             className={styles.input}
+                            disabled={selectedDate !== new Date().toISOString().split('T')[0]}
                         />
-                        <Button type="submit" variant="primary" size="sm" className={styles.sendBtn}>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="sm"
+                            className={styles.sendBtn}
+                            disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                        >
                             <Send size={18} />
                         </Button>
                     </>
                 )}
             </form>
+            {selectedDate !== new Date().toISOString().split('T')[0] && (
+                <div className={styles.archiveNotice}>
+                    Viewing history for {new Date(selectedDate).toLocaleDateString()}
+                </div>
+            )}
         </Card>
     );
 };

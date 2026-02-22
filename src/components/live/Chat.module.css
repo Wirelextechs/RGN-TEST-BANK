@@ -11,6 +11,62 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+.headerTools {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.datePicker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--muted);
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    color: var(--secondary);
+    border: 1px solid var(--border);
+}
+
+.datePicker input {
+    background: transparent;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--foreground);
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.lockBtn span {
+    display: inline;
+}
+
+@media (max-width: 480px) {
+    .lockBtn span {
+        display: none;
+    }
+}
+
+.archiveNotice {
+    position: absolute;
+    top: 3.5rem;
+    left: 1rem;
+    right: 1rem;
+    background: var(--primary);
+    color: white;
+    padding: 0.4rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(19, 96, 59, 0.2);
 }
 
 .status {
