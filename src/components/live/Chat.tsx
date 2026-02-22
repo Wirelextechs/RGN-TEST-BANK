@@ -209,7 +209,19 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
                             {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
                         </div>
                         <div className={styles.contentWrapper}>
-                            <div className={styles.msgContent}>{msg.content}</div>
+                            <div className={styles.senderHeader}>
+                                <span className={styles.senderName}>
+                                    {msg.user_id === userProfile.id ? "You" : (msg.profiles?.full_name || "Unknown User")}
+                                </span>
+                            </div>
+                            <div className={styles.msgBubble}>
+                                <div className={styles.msgContent}>{msg.content}</div>
+                                <div className={styles.msgMeta}>
+                                    <span className={styles.timestamp}>
+                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                            </div>
                             <div className={styles.reactions}>
                                 {Object.entries(msg.reactions || {}).map(([emoji, users]) => (
                                     <span key={emoji} className={styles.reaction}>

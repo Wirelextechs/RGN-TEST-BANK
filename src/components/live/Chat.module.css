@@ -148,20 +148,67 @@
 .contentWrapper {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.125rem;
+}
+
+.senderHeader {
+    display: flex;
+    align-items: center;
+    padding: 0 0.25rem;
+}
+
+.senderName {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--secondary);
+    opacity: 0.9;
+}
+
+.own .senderName {
+    color: var(--primary);
+    display: none;
+    /* Usually "You" is hidden for own messages in clean mobile UIs, but I'll keep it subtle or hide */
+}
+
+.msgBubble {
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .msgContent {
-    padding: 0.75rem 1rem;
+    padding: 0.6rem 0.85rem;
+    padding-bottom: 0.4rem;
     border-radius: 12px;
     background: var(--muted);
     font-size: 0.925rem;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    line-height: 1.4;
+    word-break: break-word;
 }
 
 .own .msgContent {
     background: var(--primary);
     color: white;
+}
+
+.msgMeta {
+    align-self: flex-end;
+    margin-top: -0.25rem;
+    padding-right: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+
+.timestamp {
+    font-size: 0.65rem;
+    color: var(--secondary);
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.own .timestamp {
+    color: white;
+    opacity: 0.8;
 }
 
 .reactions {
