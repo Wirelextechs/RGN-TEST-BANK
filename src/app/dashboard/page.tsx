@@ -19,7 +19,9 @@ import {
     School,
     User as UserIcon,
     Shield,
-    BellRing
+    BellRing,
+    Hand,
+    X
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
@@ -35,6 +37,8 @@ export default function DashboardPage() {
     const [topStudents, setTopStudents] = useState<Profile[]>([]);
     const [allStudents, setAllStudents] = useState<Profile[]>([]);
     const [raisedHands, setRaisedHands] = useState<Profile[]>([]);
+    const [notifications, setNotifications] = useState<Profile[]>([]);
+    const prevHandsRef = useRef<Profile[]>([]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -133,6 +137,26 @@ export default function DashboardPage() {
             .eq('is_hand_raised', true);
 
         if (data) {
+            // Check for new hand raises specifically for notifications
+            const currentIds = data.map(p => p.id);
+            const prevIds = prevHandsRef.current.map(p => p.id);
+
+            const newRaises = data.filter(p => !prevIds.includes(p.id));
+            if (newRaises.length > 0 && isAdmin) {
+                setNotifications(prev => [...prev, ...newRaises]);
+                // Play notification sound
+                const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+                audio.play().catch(() => { }); // Browser might block auto-play
+
+                // Auto-clear notification after 5 seconds
+                newRaises.forEach(p => {
+                    setTimeout(() => {
+                        setNotifications(prev => prev.filter(n => n.id !== p.id));
+                    }, 5000);
+                });
+            }
+
+            prevHandsRef.current = data;
             setRaisedHands(data);
         }
         if (error) {
@@ -168,6 +192,44 @@ export default function DashboardPage() {
 
     return (
         <div className={styles.container}>
+            {/* Hand Raise Notifications (Google Meet Style) */}
+            {isAdmin && notifications.length > 0 && (
+                <div className={styles.toastContainer}>
+                    {notifications.map(student => (
+                        <div key={student.id} className={styles.toast}>
+                            <div className={styles.toastIcon}>
+                                <Hand size={20} />
+                            </div>
+                            <div className={styles.toastContent}>
+                                <strong>{student.full_name} raised a hand</strong>
+                                <span>{student.school || "RGN Student"}</span>
+                            </div>
+                            <div className={styles.toastActions}>
+                                <Button
+                                    size="sm"
+                                    className={styles.ackBtn}
+                                    onClick={async () => {
+                                        await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
+                                        setNotifications(prev => prev.filter(n => n.id !== student.id));
+                                        fetchRaisedHands();
+                                    }}
+                                >
+                                    Lower
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    style={{ color: 'white', padding: '0.25rem' }}
+                                    onClick={() => setNotifications(prev => prev.filter(n => n.id !== student.id))}
+                                >
+                                    <X size={18} />
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <aside className={styles.sidebar}>
                 <div className={styles.logo}>
                     <Image src="/logo.jpg" alt="RGN Logo" width={32} height={32} className={styles.brandLogo} />
@@ -353,6 +415,18 @@ export default function DashboardPage() {
                                                     </div>
                                                 ))}
                                             </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className={styles.lowerAllBtn}
+                                                onClick={async () => {
+                                                    const ids = raisedHands.map(h => h.id);
+                                                    await supabase.from('profiles').update({ is_hand_raised: false }).in('id', ids);
+                                                    fetchRaisedHands();
+                                                }}
+                                            >
+                                                Lower All Hands
+                                            </Button>
                                         </Card>
                                     )}
                                 </div>
