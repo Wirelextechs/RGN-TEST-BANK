@@ -174,7 +174,6 @@
     display: grid;
     grid-template-columns: 1fr 400px;
     gap: 2rem;
-    overflow-y: auto;
 }
 
 .leftCol {
@@ -669,4 +668,16 @@
     font-weight: 600;
     color: var(--foreground);
     margin: 0;
+}
+
+.chatSection {
+    position: sticky;
+    top: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .chatSection {
+        position: static;
+        margin-top: 1rem;
+    }
 }

@@ -20,6 +20,7 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
     const [newMessage, setNewMessage] = useState("");
     const [isChatLocked, setIsChatLocked] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [showJumpBtn, setShowJumpBtn] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -124,10 +125,27 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
     }, [selectedDate, userProfile.id]);
 
     useEffect(() => {
-        if (scrollRef.current) {
+        if (scrollRef.current && !showJumpBtn) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [messages]);
+    }, [messages, showJumpBtn]);
+
+    const handleScroll = () => {
+        if (scrollRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+            // Show button if user scrolls up more than 300px from bottom
+            setShowJumpBtn(scrollHeight - scrollTop - clientHeight > 300);
+        }
+    };
+
+    const scrollToBottom = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    };
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -200,38 +218,45 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
                 </div>
             </div>
 
-            <div className={styles.messages} ref={scrollRef}>
-                {messages.map((msg) => (
-                    <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
-                        <div className={styles.avatar}>
-                            {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || msg.user_id.substring(0, 1).toUpperCase()}
-                            {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
-                            {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
-                        </div>
-                        <div className={styles.contentWrapper}>
-                            <div className={styles.senderHeader}>
-                                <span className={styles.senderName}>
-                                    {msg.user_id === userProfile.id ? "You" : (msg.profiles?.full_name || "Unknown User")}
-                                </span>
+            <div className={styles.messagesContainer}>
+                <div className={styles.messages} ref={scrollRef} onScroll={handleScroll}>
+                    {messages.map((msg) => (
+                        <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
+                            <div className={styles.avatar}>
+                                {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || msg.user_id.substring(0, 1).toUpperCase()}
+                                {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
+                                {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
                             </div>
-                            <div className={styles.msgBubble}>
-                                <div className={styles.msgContent}>{msg.content}</div>
-                                <div className={styles.msgMeta}>
-                                    <span className={styles.timestamp}>
-                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <div className={styles.contentWrapper}>
+                                <div className={styles.senderHeader}>
+                                    <span className={styles.senderName}>
+                                        {msg.user_id === userProfile.id ? "You" : (msg.profiles?.full_name || "Unknown User")}
                                     </span>
                                 </div>
-                            </div>
-                            <div className={styles.reactions}>
-                                {Object.entries(msg.reactions || {}).map(([emoji, users]) => (
-                                    <span key={emoji} className={styles.reaction}>
-                                        {emoji} {users.length}
-                                    </span>
-                                ))}
+                                <div className={styles.msgBubble}>
+                                    <div className={styles.msgContent}>{msg.content}</div>
+                                    <div className={styles.msgMeta}>
+                                        <span className={styles.timestamp}>
+                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={styles.reactions}>
+                                    {Object.entries(msg.reactions || {}).map(([emoji, users]) => (
+                                        <span key={emoji} className={styles.reaction}>
+                                            {emoji} {users.length}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
+                {showJumpBtn && (
+                    <button className={styles.jumpBtn} onClick={scrollToBottom}>
+                        <Hash size={16} /> New Messages
+                    </button>
+                )}
             </div>
 
             <form onSubmit={handleSendMessage} className={styles.inputArea}>

@@ -1,5 +1,6 @@
 .chatContainer {
-    height: 600px;
+    height: 700px;
+    max-height: calc(100vh - 160px);
     display: flex;
     flex-direction: column;
     padding: 0 !important;
@@ -85,13 +86,63 @@
     box-shadow: 0 0 8px var(--success);
 }
 
+.messagesContainer {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
 .messages {
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
     padding: 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+    border-radius: 10px;
+}
+
+.jumpBtn {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(19, 96, 59, 0.3);
+    z-index: 20;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.jumpBtn:hover {
+    background: var(--accent);
 }
 
 .message {
