@@ -116,7 +116,8 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || (isChatLocked && !isAdmin && !userProfile.is_locked)) return;
+        // Allow if: !locked OR isAdmin OR specifically unlocked
+        if (!newMessage.trim() || (isChatLocked && !isAdmin && !userProfile.is_unlocked)) return;
 
         const { error } = await supabase.from("messages").insert({
             content: newMessage,
@@ -205,7 +206,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             </div>
 
             <form onSubmit={handleSendMessage} className={styles.inputArea}>
-                {!isAdmin && isChatLocked && !userProfile.is_locked ? (
+                {!isAdmin && isChatLocked && !userProfile.is_unlocked ? (
                     <div className={styles.lockedArea}>
                         <span>Chat is locked by Admin</span>
                         <Button

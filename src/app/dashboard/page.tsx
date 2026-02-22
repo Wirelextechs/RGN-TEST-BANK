@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase, Profile } from "@/lib/supabase";
 import Image from "next/image";
 
@@ -205,9 +205,22 @@ export default function DashboardPage() {
                                 <span>{student.school || "RGN Student"}</span>
                             </div>
                             <div className={styles.toastActions}>
+                                {!student.is_unlocked && (
+                                    <Button
+                                        size="sm"
+                                        className={styles.ackBtn}
+                                        onClick={async () => {
+                                            await supabase.from('profiles').update({ is_unlocked: true }).eq('id', student.id);
+                                            fetchRaisedHands();
+                                        }}
+                                    >
+                                        Unlock Chat
+                                    </Button>
+                                )}
                                 <Button
                                     size="sm"
                                     className={styles.ackBtn}
+                                    style={{ background: 'transparent', border: '1px solid white' }}
                                     onClick={async () => {
                                         await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
                                         setNotifications(prev => prev.filter(n => n.id !== student.id));
@@ -402,16 +415,39 @@ export default function DashboardPage() {
                                                             <span className={styles.studentName}>{student.full_name}</span>
                                                             <span className={styles.studentSchool}>{student.school}</span>
                                                         </div>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={async () => {
-                                                                await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
-                                                                fetchRaisedHands();
-                                                            }}
-                                                        >
-                                                            Lower Hand
-                                                        </Button>
+                                                        <div className={styles.toastActions} style={{ gap: '0.5rem' }}>
+                                                            {!student.is_unlocked ? (
+                                                                <Button
+                                                                    variant="primary"
+                                                                    size="sm"
+                                                                    onClick={async () => {
+                                                                        await supabase.from('profiles').update({ is_unlocked: true }).eq('id', student.id);
+                                                                        fetchRaisedHands();
+                                                                    }}
+                                                                >
+                                                                    Unlock
+                                                                </Button>
+                                                            ) : (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    disabled
+                                                                    style={{ opacity: 0.7 }}
+                                                                >
+                                                                    Unlocked
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={async () => {
+                                                                    await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
+                                                                    fetchRaisedHands();
+                                                                }}
+                                                            >
+                                                                Lower
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>

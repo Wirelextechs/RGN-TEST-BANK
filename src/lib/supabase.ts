@@ -13,6 +13,7 @@ export type Profile = {
     avatar_url?: string;
     is_locked: boolean;
     is_hand_raised: boolean;
+    is_unlocked: boolean;
     points: number;
     last_read_at?: string;
 };
