@@ -33,6 +33,7 @@ export default function DashboardPage() {
     const { user, profile, loading, signOut } = useAuth();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("live");
+    const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
     const [schoolStats, setSchoolStats] = useState<{ school: string, count: number }[]>([]);
     const [topStudents, setTopStudents] = useState<Profile[]>([]);
     const [allStudents, setAllStudents] = useState<Profile[]>([]);
@@ -48,8 +49,8 @@ export default function DashboardPage() {
 
         if (profile) {
             const fetchData = () => {
-                if (profile.role === "admin") {
-                    fetchSchoolStats();
+                if (profile.role === "admin" || profile.role === "ta") {
+                    if (profile.role === "admin") fetchSchoolStats();
                     fetchAllStudents();
                     fetchRaisedHands();
                 }
@@ -189,6 +190,8 @@ export default function DashboardPage() {
     }
 
     const isAdmin = profile.role === "admin";
+    const isTA = profile.role === "ta";
+    const isStaff = isAdmin || isTA;
 
     return (
         <div className={styles.container}>
@@ -274,7 +277,7 @@ export default function DashboardPage() {
                         <FileEdit size={20} />
                         <span>Quizzes</span>
                     </Button>
-                    {isAdmin && (
+                    {isStaff && (
                         <>
                             <Button
                                 variant="ghost"
@@ -284,14 +287,16 @@ export default function DashboardPage() {
                                 <Users size={20} />
                                 <span>Students</span>
                             </Button>
-                            <Button
-                                variant="ghost"
-                                className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
-                                onClick={() => setActiveTab("impact")}
-                            >
-                                <School size={20} />
-                                <span>Impact</span>
-                            </Button>
+                            {isAdmin && (
+                                <Button
+                                    variant="ghost"
+                                    className={`${styles.navItem} ${activeTab === "impact" ? styles.active : ""}`}
+                                    onClick={() => setActiveTab("impact")}
+                                >
+                                    <School size={20} />
+                                    <span>Impact</span>
+                                </Button>
+                            )}
                         </>
                     )}
                 </nav>
@@ -334,7 +339,7 @@ export default function DashboardPage() {
                 >
                     <FileEdit size={20} />
                 </Button>
-                {isAdmin && (
+                {isStaff && (
                     <Button
                         variant="ghost"
                         className={`${styles.navItem} ${activeTab === "students" ? styles.active : ""}`}
@@ -364,7 +369,7 @@ export default function DashboardPage() {
             <main className={styles.main}>
                 <header className={styles.header}>
                     <div className={styles.headerInfo}>
-                        <h1>{isAdmin ? "Admin Control Center" : "Live Interactive Session"}</h1>
+                        <h1>{isAdmin ? "Admin Control Center" : isTA ? "T.A. Dashboard" : "Live Interactive Session"}</h1>
                         <p>Welcome back, {profile.full_name}</p>
                     </div>
                     <div className={styles.headerActions}>
@@ -561,6 +566,26 @@ export default function DashboardPage() {
                                             </div>
                                             <div className={styles.studentRole}>
                                                 <span className={styles.points}>{student.points} pts</span>
+                                                {isAdmin && student.id !== profile.id && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        style={{ fontSize: '10px', marginTop: '4px', height: '24px' }}
+                                                        disabled={updatingUserId === student.id}
+                                                        onClick={async () => {
+                                                            setUpdatingUserId(student.id);
+                                                            const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                            const { error } = await supabase
+                                                                .from('profiles')
+                                                                .update({ role: newRole })
+                                                                .eq('id', student.id);
+                                                            if (!error) fetchAllStudents();
+                                                            setUpdatingUserId(null);
+                                                        }}
+                                                    >
+                                                        {student.role === 'student' ? "Promote to T.A." : "Demote to Student"}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -662,7 +687,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className={styles.chatSection}>
-                        <Chat userProfile={profile} isAdmin={isAdmin} />
+                        <Chat userProfile={profile} isAdmin={isAdmin} isTA={isTA} />
                     </div>
                 </div>
             </main>

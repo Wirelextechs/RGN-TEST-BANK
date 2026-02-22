@@ -11,9 +11,11 @@ import { supabase, Message, Profile } from "@/lib/supabase";
 interface ChatProps {
     userProfile: Profile;
     isAdmin?: boolean;
+    isTA?: boolean;
 }
 
-export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
+export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
+    const isStaff = isAdmin || isTA;
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [isChatLocked, setIsChatLocked] = useState(false);
@@ -116,8 +118,8 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Allow if: !locked OR isAdmin OR specifically unlocked
-        if (!newMessage.trim() || (isChatLocked && !isAdmin && !userProfile.is_unlocked)) return;
+        // Allow if: !locked OR isStaff OR specifically unlocked
+        if (!newMessage.trim() || (isChatLocked && !isStaff && !userProfile.is_unlocked)) return;
 
         const { error } = await supabase.from("messages").insert({
             content: newMessage,
@@ -155,7 +157,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                             max={new Date().toISOString().split('T')[0]}
                         />
                     </div>
-                    {isAdmin && (
+                    {isStaff && (
                         <Button
                             variant={isChatLocked ? "error" : "outline"}
                             size="sm"
@@ -173,7 +175,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                                 } catch (err: any) {
                                     console.error("Lock toggle failed:", err);
                                     setIsChatLocked(isChatLocked); // Revert
-                                    alert(`Failed to update lock: ${err.message || "Ensure you are an admin in the database profiles table."}`);
+                                    alert(`Failed to update lock: ${err.message || "Ensure you are a staff member (Admin/TA) in the database."}`);
                                 }
                             }}
                             className={styles.lockBtn}
@@ -190,6 +192,8 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                     <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
                         <div className={styles.avatar}>
                             {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || msg.user_id.substring(0, 1).toUpperCase()}
+                            {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
+                            {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
                         </div>
                         <div className={styles.contentWrapper}>
                             <div className={styles.msgContent}>{msg.content}</div>
@@ -206,7 +210,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             </div>
 
             <form onSubmit={handleSendMessage} className={styles.inputArea}>
-                {!isAdmin && isChatLocked && !userProfile.is_unlocked ? (
+                {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
                     <div className={styles.lockedArea}>
                         <span>Chat is locked by Admin</span>
                         <Button
