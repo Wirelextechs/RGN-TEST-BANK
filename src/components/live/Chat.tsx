@@ -21,6 +21,31 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Fetch current platform settings (like chat lock)
+        const fetchSettings = async () => {
+            const { data } = await supabase
+                .from("platform_settings")
+                .select("*")
+                .eq("key", "chat_lock")
+                .single();
+            if (data?.value) {
+                setIsChatLocked(data.value.is_locked);
+            }
+        };
+
+        fetchSettings();
+
+        // Subscribe to settings changes
+        const settingsChannel = supabase
+            .channel("platform-settings")
+            .on("postgres_changes",
+                { event: "UPDATE", schema: "public", table: "platform_settings", filter: "key=eq.chat_lock" },
+                (payload) => {
+                    setIsChatLocked(payload.new.value.is_locked);
+                }
+            )
+            .subscribe();
+
         // Initial fetch of messages for selected date
         const fetchMessages = async () => {
             const startOfDay = `${selectedDate}T00:00:00.000Z`;
@@ -40,7 +65,7 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
         // Subscribe to new messages (only relevant for today)
         const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
-        const channel = supabase
+        const chatChannel = supabase
             .channel("live-chat")
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
                 if (isToday) {
@@ -50,7 +75,8 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(settingsChannel);
+            supabase.removeChannel(chatChannel);
         };
     }, [selectedDate]);
 
@@ -100,7 +126,16 @@ export const Chat = ({ userProfile, isAdmin }: ChatProps) => {
                         <Button
                             variant={isChatLocked ? "error" : "outline"}
                             size="sm"
-                            onClick={() => setIsChatLocked(!isChatLocked)}
+                            onClick={async () => {
+                                const newLockState = !isChatLocked;
+                                // Optimistic UI update
+                                setIsChatLocked(newLockState);
+
+                                await supabase
+                                    .from("platform_settings")
+                                    .update({ value: { is_locked: newLockState } })
+                                    .eq("key", "chat_lock");
+                            }}
                             className={styles.lockBtn}
                         >
                             {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
