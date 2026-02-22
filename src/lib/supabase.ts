@@ -14,6 +14,7 @@ export type Profile = {
     is_locked: boolean;
     is_hand_raised: boolean;
     points: number;
+    last_read_at?: string;
 };
 
 export type Message = {
