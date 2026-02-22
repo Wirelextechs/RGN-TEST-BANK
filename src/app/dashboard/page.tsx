@@ -33,6 +33,8 @@ export default function DashboardPage() {
     const [activeTab, setActiveTab] = useState("live");
     const [schoolStats, setSchoolStats] = useState<{ school: string, count: number }[]>([]);
     const [topStudents, setTopStudents] = useState<Profile[]>([]);
+    const [allStudents, setAllStudents] = useState<Profile[]>([]);
+    const [raisedHands, setRaisedHands] = useState<Profile[]>([]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -41,6 +43,8 @@ export default function DashboardPage() {
 
         if (profile?.role === "admin") {
             fetchSchoolStats();
+            fetchAllStudents();
+            fetchRaisedHands();
         }
         fetchTopStudents();
     }, [user, loading, router, profile]);
@@ -75,6 +79,29 @@ export default function DashboardPage() {
 
         if (data) {
             setTopStudents(data);
+        }
+    };
+
+    const fetchAllStudents = async () => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'student')
+            .order('full_name', { ascending: true });
+
+        if (data) {
+            setAllStudents(data);
+        }
+    };
+
+    const fetchRaisedHands = async () => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('is_hand_raised', true);
+
+        if (data) {
+            setRaisedHands(data);
         }
     };
 
@@ -250,6 +277,34 @@ export default function DashboardPage() {
                                             )}
                                         </div>
                                     </Card>
+
+                                    {raisedHands.length > 0 && (
+                                        <Card className={styles.handRaisedCard} title="Students with Hands Raised ✋">
+                                            <div className={styles.handList}>
+                                                {raisedHands.map(student => (
+                                                    <div key={student.id} className={styles.handItem}>
+                                                        <div className={styles.avatar}>
+                                                            {student.full_name.substring(0, 1)}
+                                                        </div>
+                                                        <div className={styles.studentInfo}>
+                                                            <span className={styles.studentName}>{student.full_name}</span>
+                                                            <span className={styles.studentSchool}>{student.school}</span>
+                                                        </div>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={async () => {
+                                                                await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
+                                                                fetchRaisedHands();
+                                                            }}
+                                                        >
+                                                            Lower Hand
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Card>
+                                    )}
                                 </div>
                             ) : (
                                 <div className={styles.studentView}>
@@ -310,15 +365,49 @@ export default function DashboardPage() {
 
                         {activeTab === "overview" && (
                             <div className={styles.overviewSection}>
+                                <div className={styles.stats}>
+                                    <Card glass className={styles.statCard}>
+                                        <Users size={24} color="var(--primary)" />
+                                        <div>
+                                            <h4>{isAdmin ? allStudents.length : "128"}</h4>
+                                            <span>{isAdmin ? "Total Registered Students" : "Online Students"}</span>
+                                        </div>
+                                    </Card>
+                                    <Card glass className={styles.statCard}>
+                                        <Trophy size={24} color="#FFD700" />
+                                        <div>
+                                            <h4>#{topStudents.findIndex(s => s.id === profile.id) + 1 || "---"}</h4>
+                                            <span>Your Global Rank</span>
+                                        </div>
+                                    </Card>
+                                </div>
                                 <Card title="Course Progress">
-                                    <p>Your overall progress in RGN Preparation: 65%</p>
+                                    <p>Your overall progress in RGN Preparation: {isAdmin ? "Platform Active" : "65%"}</p>
                                 </Card>
                             </div>
                         )}
 
                         {activeTab === "students" && isAdmin && (
-                            <Card title="Student Management">
-                                <p>Manage your students and their progress here.</p>
+                            <Card title={`Registered Students (${allStudents.length})`}>
+                                <div className={styles.studentList}>
+                                    {allStudents.map(student => (
+                                        <div key={student.id} className={styles.rankingItem}>
+                                            <div className={styles.avatar}>
+                                                {student.full_name.substring(0, 1)}
+                                            </div>
+                                            <div className={styles.studentInfo}>
+                                                <span className={styles.studentName}>{student.full_name}</span>
+                                                <span className={styles.studentSchool}>{student.school}</span>
+                                            </div>
+                                            <div className={styles.studentRole}>
+                                                <span className={styles.points}>{student.points} pts</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {allStudents.length === 0 && (
+                                        <p className={styles.noData}>No students registered yet.</p>
+                                    )}
+                                </div>
                             </Card>
                         )}
 
