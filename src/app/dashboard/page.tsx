@@ -385,8 +385,17 @@ export default function DashboardPage() {
                 <div className={styles.contentGrid}>
                     <div className={styles.leftCol}>
                         {activeTab === "live" && (
-                            isAdmin ? (
+                            isStaff ? (
                                 <div className={styles.adminTools}>
+                                    <Card className={styles.videoPlayer}>
+                                        <div className={styles.videoOverlay}>
+                                            <div className={styles.liveBadge}>LIVE</div>
+                                            <span>Staff Monitor</span>
+                                        </div>
+                                        <div className={styles.placeholderIcon}>
+                                            <Video size={64} />
+                                        </div>
+                                    </Card>
                                     <QuizGenerator />
                                     <Card className={styles.activityCard} title="Top 10 Active Students">
                                         <div className={styles.rankingList}>
