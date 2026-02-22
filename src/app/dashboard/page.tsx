@@ -445,10 +445,12 @@ export default function DashboardPage() {
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
-                                                                    disabled
-                                                                    style={{ opacity: 0.7 }}
+                                                                    onClick={async () => {
+                                                                        await supabase.from('profiles').update({ is_unlocked: false }).eq('id', student.id);
+                                                                        fetchRaisedHands();
+                                                                    }}
                                                                 >
-                                                                    Unlocked
+                                                                    Relock
                                                                 </Button>
                                                             )}
                                                             <Button
@@ -581,30 +583,50 @@ export default function DashboardPage() {
                                             <div className={styles.studentRole}>
                                                 <span className={styles.points}>{student.points} pts</span>
                                                 {isAdmin && student.id !== profile.id && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
-                                                        disabled={updatingUserId === student.id}
-                                                        onClick={async () => {
-                                                            setUpdatingUserId(student.id);
-                                                            const newRole = student.role === 'student' ? 'ta' : 'student';
-                                                            const { error } = await supabase
-                                                                .from('profiles')
-                                                                .update({ role: newRole })
-                                                                .eq('id', student.id);
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={student.is_unlocked ? styles.demoteBtn : styles.promoteBtn}
+                                                            disabled={updatingUserId === student.id}
+                                                            onClick={async () => {
+                                                                setUpdatingUserId(student.id);
+                                                                const { error } = await supabase
+                                                                    .from('profiles')
+                                                                    .update({ is_unlocked: !student.is_unlocked })
+                                                                    .eq('id', student.id);
 
-                                                            if (error) {
-                                                                console.error("Promotion error:", error);
-                                                                alert(`Could not update role. This is likely due to a database constraint. Please check your Supabase SQL Editor.`);
-                                                            } else {
-                                                                fetchAllStudents();
-                                                            }
-                                                            setUpdatingUserId(null);
-                                                        }}
-                                                    >
-                                                        {student.role === 'student' ? "Promote to T.A." : "Demote"}
-                                                    </Button>
+                                                                if (!error) fetchAllStudents();
+                                                                setUpdatingUserId(null);
+                                                            }}
+                                                        >
+                                                            {student.is_unlocked ? "Relock" : "Unlock"}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                            disabled={updatingUserId === student.id}
+                                                            onClick={async () => {
+                                                                setUpdatingUserId(student.id);
+                                                                const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                const { error } = await supabase
+                                                                    .from('profiles')
+                                                                    .update({ role: newRole })
+                                                                    .eq('id', student.id);
+
+                                                                if (error) {
+                                                                    console.error("Promotion error:", error);
+                                                                    alert(`Could not update role. This is likely due to a database constraint. Please check your Supabase SQL Editor.`);
+                                                                } else {
+                                                                    fetchAllStudents();
+                                                                }
+                                                                setUpdatingUserId(null);
+                                                            }}
+                                                        >
+                                                            {student.role === 'student' ? "Promote" : "Demote"}
+                                                        </Button>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
