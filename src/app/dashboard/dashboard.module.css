@@ -3,6 +3,7 @@
     height: 100vh;
     background: var(--background);
     flex-direction: column;
+    overflow-x: hidden;
 }
 
 @media (min-width: 1024px) {
@@ -611,8 +612,10 @@
         grid-template-columns: 1fr;
         padding: 1.25rem;
         gap: 1.25rem;
-        margin-bottom: 4rem;
-        /* For mobile nav */
+        margin-bottom: 5rem;
+        /* Increased for mobile nav */
+        overflow-y: visible;
+        /* Let main scroll handle it */
     }
 
     .sidebarFooter {

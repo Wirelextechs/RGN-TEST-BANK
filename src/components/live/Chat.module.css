@@ -4,6 +4,24 @@
     display: flex;
     flex-direction: column;
     padding: 0 !important;
+    min-height: 0;
+    /* Important for flex child scrolling */
+}
+
+@media (max-width: 768px) {
+    .chatContainer {
+        height: 500px;
+        /* Shorter on mobile to avoid pushing too far */
+        max-height: 70vh;
+        /* Don't take whole screen if other content exists */
+    }
+}
+
+@media (max-width: 480px) {
+    .chatContainer {
+        height: 400px;
+        max-height: 60vh;
+    }
 }
 
 .chatHeader {
@@ -104,6 +122,10 @@
     gap: 1.25rem;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+    -webkit-overflow-scrolling: touch;
+    /* For smooth iOS scrolling */
+    overscroll-behavior: contain;
+    /* Prevents parent scrolling */
 }
 
 .messages::-webkit-scrollbar {
