@@ -5,37 +5,71 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar } from "lucide-react";
 import styles from "./Chat.module.css";
-import { supabase, Message, Profile } from "@/lib/supabase";
+import { supabase, Message, Profile, Lesson } from "@/lib/supabase";
 
 interface ChatProps {
     userProfile: Profile;
     isAdmin?: boolean;
     isTA?: boolean;
+    lessonId?: string;
+    isArchive?: boolean;
 }
 
-export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
+export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatProps) => {
     const isStaff = isAdmin || isTA;
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [isChatLocked, setIsChatLocked] = useState(false);
+    const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [showJumpBtn, setShowJumpBtn] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Fetch current platform settings (like chat lock)
-        const fetchSettings = async () => {
-            const { data } = await supabase
-                .from("platform_settings")
-                .select("*")
-                .eq("key", "chat_lock")
-                .single();
-            if (data?.value) {
-                setIsChatLocked(data.value.is_locked);
+        // 1. Fetch Active or Specific Lesson
+        const fetchLessonContext = async () => {
+            if (isArchive && lessonId) {
+                const { data } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
+                if (data) setActiveLesson(data);
+                setIsChatLocked(true); // Always locked in archive
+                return;
+            }
+
+            // Live Class Mode: Find most recent live or scheduled lesson
+            const { data: liveLessons } = await supabase
+                .from('lessons')
+                .select('*')
+                .or('status.eq.live,status.eq.scheduled')
+                .order('scheduled_at', { ascending: true })
+                .limit(1);
+
+            if (liveLessons && liveLessons.length > 0) {
+                const lesson = liveLessons[0];
+                setActiveLesson(lesson);
+
+                // Auto-lock logic: Locked if scheduled and time not arrived (and not forced open by staff)
+                const isTimeDue = new Date(lesson.scheduled_at) <= new Date();
+                if (lesson.status === 'scheduled' && !isTimeDue) {
+                    setIsChatLocked(true);
+                } else {
+                    // Check global chat lock setting too
+                    const { data: settings } = await supabase
+                        .from("platform_settings")
+                        .select("*")
+                        .eq("key", "chat_lock")
+                        .single();
+                    if (settings?.value) {
+                        setIsChatLocked(settings.value.is_locked);
+                    }
+                }
+            } else {
+                // No active lesson: Chat is locked
+                setIsChatLocked(true);
+                setActiveLesson(null);
             }
         };
 
-        fetchSettings();
+        fetchLessonContext();
 
         // Subscribe to settings changes
         const settingsChannel = supabase
@@ -50,31 +84,30 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
 
         // Initial fetch of messages (Persistent "WhatsApp" style)
         const fetchMessages = async () => {
-            const isToday = selectedDate === new Date().toISOString().split('T')[0];
-
             let query = supabase
                 .from("messages")
                 .select("*, profiles(full_name, role)");
 
-            if (isToday) {
-                // Load at least 20 messages, or all since last_read_at
-                const lastRead = userProfile.last_read_at || new Date(0).toISOString();
-
-                const { data } = await query
-                    .order("created_at", { ascending: false })
-                    .limit(50); // Get latest 50 for immediate context
-
-                if (data) setMessages(data.reverse() as any);
+            if (isArchive && lessonId) {
+                // Load messages for specific lesson
+                query = query.eq('lesson_id', lessonId);
+            } else if (activeLesson) {
+                // Load messages for current active lesson
+                query = query.eq('lesson_id', activeLesson.id);
             } else {
-                // Historical archive view
-                const startOfDay = `${selectedDate}T00:00:00.000Z`;
-                const endOfDay = `${selectedDate}T23:59:59.999Z`;
-                const { data } = await query
-                    .gte("created_at", startOfDay)
-                    .lte("created_at", endOfDay)
-                    .order("created_at", { ascending: true });
-                if (data) setMessages(data as any);
+                // Fallback: Just load today's messages if no active lesson found
+                const isToday = selectedDate === new Date().toISOString().split('T')[0];
+                if (isToday) {
+                    query = query.order("created_at", { ascending: false }).limit(50);
+                } else {
+                    const startOfDay = `${selectedDate}T00:00:00.000Z`;
+                    const endOfDay = `${selectedDate}T23:59:59.999Z`;
+                    query = query.gte("created_at", startOfDay).lte("created_at", endOfDay);
+                }
             }
+
+            const { data } = await query.order("created_at", { ascending: true });
+            if (data) setMessages(data as any);
         };
 
         fetchMessages();
@@ -90,8 +123,13 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
         }
 
         const chatChannel = supabase
-            .channel("live-chat")
-            .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
+            .channel(`lesson-chat-${lessonId || activeLesson?.id || 'global'}`)
+            .on("postgres_changes", {
+                event: "INSERT",
+                schema: "public",
+                table: "messages",
+                filter: lessonId || activeLesson?.id ? `lesson_id=eq.${lessonId || activeLesson?.id}` : undefined
+            }, async (payload) => {
                 if (isToday) {
                     const newMessage = payload.new as Message;
 
@@ -155,10 +193,12 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
         e.preventDefault();
         // Allow if: !locked OR isStaff OR specifically unlocked
         if (!newMessage.trim() || (isChatLocked && !isStaff && !userProfile.is_unlocked)) return;
+        if (!activeLesson && !isArchive) return; // Must have an active lesson to chat
 
         const { error } = await supabase.from("messages").insert({
             content: newMessage,
             user_id: userProfile.id,
+            lesson_id: lessonId || activeLesson?.id
         });
 
         if (!error) setNewMessage("");
@@ -180,7 +220,14 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
             <div className={styles.chatHeader}>
                 <div className={styles.status}>
                     <div className={styles.onlineDot}></div>
-                    <span>{selectedDate === new Date().toISOString().split('T')[0] ? "Live Interaction" : "Archive"}</span>
+                    <div className={styles.topicInfo}>
+                        <span className={styles.statusLabel}>
+                            {isArchive ? "Lesson Archive" : (activeLesson?.status === 'live' ? "Live Lesson" : "Scheduled")}
+                        </span>
+                        <h4 className={styles.topicName}>
+                            {activeLesson?.topic || "No Active Lesson"}
+                        </h4>
+                    </div>
                 </div>
                 <div className={styles.headerTools}>
                     <div className={styles.datePicker}>

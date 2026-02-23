@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Chat } from "@/components/live/Chat";
 import { QuizGenerator } from "@/components/quiz/QuizGenerator";
 import { QuizPlayer } from "@/components/quiz/QuizPlayer";
+import { LessonManager } from "@/components/live/LessonManager";
+import { LessonArchive } from "@/components/live/LessonArchive";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import {
@@ -304,6 +306,26 @@ export default function DashboardPage() {
                 <div className={styles.sidebarFooter}>
                     <Button
                         variant="ghost"
+                        className={`${styles.navItem} ${activeTab === 'lessons' ? styles.active : ''}`}
+                        onClick={() => setActiveTab('lessons')}
+                    >
+                        <GraduationCap size={20} />
+                        <span>Past Lessons</span>
+                    </Button>
+
+                    {(profile?.role === 'admin' || profile?.role === 'ta') && (
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === 'schedule' ? styles.active : ''}`}
+                            onClick={() => setActiveTab('schedule')}
+                        >
+                            <Shield size={20} />
+                            <span>Schedule</span>
+                        </Button>
+                    )}
+
+                    <Button
+                        variant="ghost"
                         className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}
                         onClick={() => setActiveTab("settings")}
                     >
@@ -435,8 +457,10 @@ export default function DashboardPage() {
                                                                     variant="primary"
                                                                     size="sm"
                                                                     onClick={async () => {
-                                                                        await supabase.from('profiles').update({ is_unlocked: true }).eq('id', student.id);
-                                                                        fetchRaisedHands();
+                                                                        console.log('Unlock clicked for', student.id);
+                                                                        const { error } = await supabase.from('profiles').update({ is_unlocked: true }).eq('id', student.id);
+                                                                        if (error) { console.error('Unlock error:', error); alert('Unlock failed: ' + error.message); }
+                                                                        else { console.log('Unlock success'); fetchRaisedHands(); }
                                                                     }}
                                                                 >
                                                                     Unlock
@@ -446,8 +470,10 @@ export default function DashboardPage() {
                                                                     variant="outline"
                                                                     size="sm"
                                                                     onClick={async () => {
-                                                                        await supabase.from('profiles').update({ is_unlocked: false }).eq('id', student.id);
-                                                                        fetchRaisedHands();
+                                                                        console.log('Relock clicked for', student.id);
+                                                                        const { error } = await supabase.from('profiles').update({ is_unlocked: false }).eq('id', student.id);
+                                                                        if (error) { console.error('Relock error:', error); alert('Relock failed: ' + error.message); }
+                                                                        else { console.log('Relock success'); fetchRaisedHands(); }
                                                                     }}
                                                                 >
                                                                     Relock
@@ -457,8 +483,10 @@ export default function DashboardPage() {
                                                                 variant="outline"
                                                                 size="sm"
                                                                 onClick={async () => {
-                                                                    await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
-                                                                    fetchRaisedHands();
+                                                                    console.log('Lower hand clicked for', student.id);
+                                                                    const { error } = await supabase.from('profiles').update({ is_hand_raised: false }).eq('id', student.id);
+                                                                    if (error) { console.error('Lower error:', error); alert('Lower failed: ' + error.message); }
+                                                                    else { console.log('Lower success'); fetchRaisedHands(); }
                                                                 }}
                                                             >
                                                                 Lower
@@ -472,9 +500,11 @@ export default function DashboardPage() {
                                                 size="sm"
                                                 className={styles.lowerAllBtn}
                                                 onClick={async () => {
+                                                    console.log('Lower All Hands clicked');
                                                     const ids = raisedHands.map(h => h.id);
-                                                    await supabase.from('profiles').update({ is_hand_raised: false }).in('id', ids);
-                                                    fetchRaisedHands();
+                                                    const { error } = await supabase.from('profiles').update({ is_hand_raised: false }).in('id', ids);
+                                                    if (error) { console.error('Lower All error:', error); alert('Lower All failed: ' + error.message); }
+                                                    else { console.log('Lower All success'); fetchRaisedHands(); }
                                                 }}
                                             >
                                                 Lower All Hands
@@ -591,12 +621,18 @@ export default function DashboardPage() {
                                                             disabled={updatingUserId === student.id}
                                                             onClick={async () => {
                                                                 setUpdatingUserId(student.id);
+                                                                console.log('Student list unlock/relock clicked for', student.id, 'current:', student.is_unlocked);
                                                                 const { error } = await supabase
                                                                     .from('profiles')
                                                                     .update({ is_unlocked: !student.is_unlocked })
                                                                     .eq('id', student.id);
 
-                                                                if (!error) fetchAllStudents();
+                                                                if (error) {
+                                                                    console.error('Unlock/Relock error:', error);
+                                                                    alert('Unlock/Relock failed: ' + error.message);
+                                                                } else {
+                                                                    fetchAllStudents();
+                                                                }
                                                                 setUpdatingUserId(null);
                                                             }}
                                                         >
@@ -726,11 +762,24 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         )}
+                        {activeTab === 'live' && (
+                            <div className={styles.chatSection}>
+                                <Chat userProfile={profile} isAdmin={profile.role === 'admin'} isTA={profile.role === 'ta'} />
+                            </div>
+                        )}
+                        {activeTab === 'lessons' && (
+                            <div className={styles.lessonsSection}>
+                                <LessonArchive userProfile={profile} />
+                            </div>
+                        )}
+                        {activeTab === 'schedule' && (
+                            <div className={styles.scheduleSection}>
+                                <LessonManager userProfile={profile} />
+                            </div>
+                        )}
                     </div>
 
-                    <div className={styles.chatSection}>
-                        <Chat userProfile={profile} isAdmin={isAdmin} isTA={isTA} />
-                    </div>
+
                 </div>
             </main>
         </div>

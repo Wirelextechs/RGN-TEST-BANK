@@ -1,0 +1,166 @@
+.container {
+    padding-bottom: 5rem;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    gap: 2rem;
+}
+
+.headerInfo h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+
+.headerInfo p {
+    color: var(--secondary);
+    font-size: 0.875rem;
+}
+
+.searchBar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 300px;
+}
+
+.searchBar svg {
+    position: absolute;
+    left: 1rem;
+    color: var(--secondary);
+    z-index: 10;
+}
+
+.searchBar input {
+    padding-left: 2.75rem !important;
+}
+
+.grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.lessonItem {
+    display: flex;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem !important;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--border);
+}
+
+.lessonItem:hover {
+    border-color: var(--primary);
+    background: rgba(19, 96, 59, 0.02);
+    transform: translateX(4px);
+}
+
+.lessonInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.topicRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.icon {
+    color: var(--primary);
+}
+
+.lessonInfo h4 {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.meta {
+    display: flex;
+    gap: 1rem;
+    color: var(--secondary);
+    font-size: 0.75rem;
+}
+
+.meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.arrow {
+    color: var(--border);
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5rem 0;
+    color: var(--secondary);
+    gap: 1rem;
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px dashed var(--border);
+}
+
+/* Viewer Styles */
+.viewer {
+    height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+.viewerHeader {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.backBtn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.viewerTitle h3 {
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.date {
+    font-size: 0.75rem;
+    color: var(--secondary);
+}
+
+.chatContainer {
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .searchBar {
+        max-width: 100%;
+    }
+}

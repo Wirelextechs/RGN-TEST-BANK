@@ -1,0 +1,182 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.scheduleCard {
+    max-width: 600px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.inputGroup label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.iconInput {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.iconInput svg {
+    position: absolute;
+    left: 1rem;
+    color: var(--secondary);
+    pointer-events: none;
+}
+
+.iconInput input {
+    width: 100%;
+    padding: 0.625rem 1rem 0.625rem 2.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 0.875rem;
+}
+
+.submitBtn {
+    margin-top: 0.5rem;
+    gap: 0.5rem;
+}
+
+.lessonList {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.listTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.25rem;
+}
+
+.lessonCard {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s;
+    border-left: 4px solid var(--border);
+}
+
+.lessonCard:hover {
+    transform: translateY(-2px);
+}
+
+.live {
+    border-left-color: var(--error);
+    background: rgba(220, 38, 38, 0.02);
+}
+
+.completed {
+    border-left-color: var(--success);
+    opacity: 0.8;
+}
+
+.scheduled {
+    border-left-color: var(--primary);
+}
+
+.lessonInfo h4 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.meta {
+    display: flex;
+    gap: 1rem;
+    color: var(--secondary);
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.statusBadge {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 4px;
+    font-size: 0.625rem;
+    font-weight: 800;
+    background: var(--muted);
+    color: var(--secondary);
+}
+
+.live .statusBadge {
+    background: var(--error);
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+.completed .statusBadge {
+    background: var(--success);
+    color: white;
+}
+
+.actions {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.completedInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 640px) {
+    .row {
+        grid-template-columns: 1fr;
+    }
+}

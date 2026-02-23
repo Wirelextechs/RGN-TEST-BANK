@@ -25,4 +25,16 @@ export type Message = {
     created_at: string;
     reactions: Record<string, string[]>; // { emoji: [user_id1, user_id2] }
     profiles?: { full_name: string; role: string };
+    lesson_id?: string;
+};
+
+export type Lesson = {
+    id: string;
+    topic: string;
+    scheduled_at: string;
+    started_at?: string;
+    ended_at?: string;
+    status: 'scheduled' | 'live' | 'completed';
+    created_at: string;
+    created_by: string;
 };
