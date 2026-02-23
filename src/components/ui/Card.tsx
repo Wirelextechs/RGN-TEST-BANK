@@ -7,6 +7,7 @@ interface CardProps {
     className?: string;
     glass?: boolean;
     animate?: boolean;
+    onClick?: () => void;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -14,15 +15,19 @@ export const Card: React.FC<CardProps> = ({
     title,
     className = '',
     glass = false,
-    animate = true
+    animate = true,
+    onClick
 }) => {
     return (
-        <div className={`
-      ${styles.card} 
-      ${glass ? 'glass' : ''} 
-      ${animate ? 'animate-scale-in' : ''} 
-      ${className}
-    `}>
+        <div
+            className={`
+              ${styles.card} 
+              ${glass ? 'glass' : ''} 
+              ${animate ? 'animate-scale-in' : ''} 
+              ${className}
+            `}
+            onClick={onClick}
+        >
             {title && <div className={styles.header}><h3 className={styles.title}>{title}</h3></div>}
             <div className={styles.content}>
                 {children}
