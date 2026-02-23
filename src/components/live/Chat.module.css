@@ -1,26 +1,17 @@
 .chatContainer {
     height: 700px;
-    max-height: calc(100vh - 160px);
-    display: flex;
-    flex-direction: column;
+    max-height: calc(100vh - 120px);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
     padding: 0 !important;
-    min-height: 0;
-    /* Important for flex child scrolling */
+    overflow: hidden;
+    position: relative;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .chatContainer {
         height: 500px;
-        /* Shorter on mobile to avoid pushing too far */
         max-height: 70vh;
-        /* Don't take whole screen if other content exists */
-    }
-}
-
-@media (max-width: 480px) {
-    .chatContainer {
-        height: 400px;
-        max-height: 60vh;
     }
 }
 
@@ -105,8 +96,9 @@
 }
 
 .messagesContainer {
-    flex: 1;
     position: relative;
+    overflow: hidden;
+    /* To contain jump buttons etc */
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -114,8 +106,8 @@
 
 .messages {
     flex: 1;
-    overflow-y: auto;
-    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
     padding: 1.25rem;
     display: flex;
     flex-direction: column;
@@ -123,9 +115,7 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
     -webkit-overflow-scrolling: touch;
-    /* For smooth iOS scrolling */
     overscroll-behavior: contain;
-    /* Prevents parent scrolling */
 }
 
 .messages::-webkit-scrollbar {

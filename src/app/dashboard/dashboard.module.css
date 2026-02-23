@@ -678,6 +678,7 @@
 .chatSection {
     position: sticky;
     top: 2rem;
+    height: fit-content;
 }
 
 @media (max-width: 1024px) {
