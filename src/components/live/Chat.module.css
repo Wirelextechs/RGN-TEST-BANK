@@ -3,9 +3,13 @@
     max-height: calc(100vh - 120px);
     display: grid;
     grid-template-rows: auto 1fr auto;
-    padding: 0 !important;
-    overflow: hidden;
+    padding: 0;
     position: relative;
+    /* Card-like appearance */
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
 }
 
 @media (max-width: 1024px) {
@@ -98,15 +102,13 @@
 .messagesContainer {
     position: relative;
     overflow: hidden;
-    /* To contain jump buttons etc */
-    display: flex;
-    flex-direction: column;
     min-height: 0;
+    /* Critical for grid children */
 }
 
 .messages {
-    flex: 1;
-    overflow-y: auto !important;
+    height: 100%;
+    overflow-y: auto;
     overflow-x: hidden;
     padding: 1.25rem;
     display: flex;

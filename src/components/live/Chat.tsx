@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar } from "lucide-react";
 import styles from "./Chat.module.css";
@@ -177,7 +176,7 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
     };
 
     return (
-        <Card className={styles.chatContainer}>
+        <div className={styles.chatContainer}>
             <div className={styles.chatHeader}>
                 <div className={styles.status}>
                     <div className={styles.onlineDot}></div>
@@ -303,6 +302,6 @@ export const Chat = ({ userProfile, isAdmin, isTA }: ChatProps) => {
                     Viewing history for {new Date(selectedDate).toLocaleDateString()}
                 </div>
             )}
-        </Card>
+        </div>
     );
 };
