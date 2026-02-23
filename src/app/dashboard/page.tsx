@@ -301,9 +301,6 @@ export default function DashboardPage() {
                             )}
                         </>
                     )}
-                </nav>
-
-                <div className={styles.sidebarFooter}>
                     <Button
                         variant="ghost"
                         className={`${styles.navItem} ${activeTab === 'lessons' ? styles.active : ''}`}
@@ -312,8 +309,7 @@ export default function DashboardPage() {
                         <GraduationCap size={20} />
                         <span>Past Lessons</span>
                     </Button>
-
-                    {(profile?.role === 'admin' || profile?.role === 'ta') && (
+                    {isStaff && (
                         <Button
                             variant="ghost"
                             className={`${styles.navItem} ${activeTab === 'schedule' ? styles.active : ''}`}
@@ -323,7 +319,9 @@ export default function DashboardPage() {
                             <span>Schedule</span>
                         </Button>
                     )}
+                </nav>
 
+                <div className={styles.sidebarFooter}>
                     <Button
                         variant="ghost"
                         className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}

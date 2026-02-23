@@ -25,45 +25,54 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const [showJumpBtn, setShowJumpBtn] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // 1. Manage Lesson Context and Global Subscriptions
     useEffect(() => {
-        // 1. Fetch Active or Specific Lesson
         const fetchLessonContext = async () => {
             if (isArchive && lessonId) {
                 const { data } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
                 if (data) setActiveLesson(data);
-                setIsChatLocked(true); // Always locked in archive
+                setIsChatLocked(true);
                 return;
             }
 
-            // Live Class Mode: Find most recent live or scheduled lesson
+            // Prioritize LIVE lessons (most recent started first)
             const { data: liveLessons } = await supabase
                 .from('lessons')
                 .select('*')
-                .or('status.eq.live,status.eq.scheduled')
-                .order('scheduled_at', { ascending: true })
+                .eq('status', 'live')
+                .order('started_at', { ascending: false })
                 .limit(1);
 
-            if (liveLessons && liveLessons.length > 0) {
-                const lesson = liveLessons[0];
-                setActiveLesson(lesson);
+            let lesson = liveLessons && liveLessons.length > 0 ? liveLessons[0] : null;
 
-                // Auto-lock logic: Locked if scheduled and time not arrived (and not forced open by staff)
-                const isTimeDue = new Date(lesson.scheduled_at) <= new Date();
+            if (!lesson) {
+                // Find next upcoming scheduled lesson
+                const { data: scheduledLessons } = await supabase
+                    .from('lessons')
+                    .select('*')
+                    .eq('status', 'scheduled')
+                    .order('scheduled_at', { ascending: true })
+                    .limit(1);
+                lesson = scheduledLessons && scheduledLessons.length > 0 ? scheduledLessons[0] : null;
+            }
+
+            if (lesson) {
+                setActiveLesson(lesson);
+                const now = new Date();
+                const scheduledAt = new Date(lesson.scheduled_at);
+                const isTimeDue = scheduledAt <= now;
+
                 if (lesson.status === 'scheduled' && !isTimeDue) {
                     setIsChatLocked(true);
+                } else if (lesson.status === 'completed') {
+                    setIsChatLocked(true);
                 } else {
-                    // Check global chat lock setting too
-                    const { data: settings } = await supabase
-                        .from("platform_settings")
-                        .select("*")
-                        .eq("key", "chat_lock")
-                        .single();
-                    if (settings?.value) {
-                        setIsChatLocked(settings.value.is_locked);
-                    }
+                    // Check global chat lock setting
+                    const { data: settings } = await supabase.from("platform_settings").select("*").eq("key", "chat_lock").single();
+                    if (settings?.value) setIsChatLocked(settings.value.is_locked);
+                    else setIsChatLocked(false);
                 }
             } else {
-                // No active lesson: Chat is locked
                 setIsChatLocked(true);
                 setActiveLesson(null);
             }
@@ -71,31 +80,53 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
         fetchLessonContext();
 
-        // Subscribe to settings changes
-        const settingsChannel = supabase
-            .channel("platform-settings")
-            .on("postgres_changes",
-                { event: "UPDATE", schema: "public", table: "platform_settings", filter: "key=eq.chat_lock" },
-                (payload) => {
-                    setIsChatLocked(payload.new.value.is_locked);
-                }
-            )
-            .subscribe();
+        // Polling for auto-start
+        const checkTimer = setInterval(() => {
+            const now = new Date();
+            if (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= now) {
+                setIsChatLocked(false);
+                fetchLessonContext();
+            }
+        }, 10000);
 
-        // Initial fetch of messages (Persistent "WhatsApp" style)
+        // Subscriptions
+        const lessonChannel = supabase.channel('lesson-status-updates').on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'lessons'
+        }, (payload) => {
+            const updated = payload.new as Lesson;
+            if (!activeLesson || activeLesson.id === updated.id || updated.status === 'live') {
+                fetchLessonContext();
+            }
+        }).subscribe();
+
+        const settingsChannel = supabase.channel("platform-settings").on("postgres_changes", {
+            event: "UPDATE",
+            schema: "public",
+            table: "platform_settings",
+            filter: "key=eq.chat_lock"
+        }, (payload) => {
+            setIsChatLocked(payload.new.value.is_locked);
+        }).subscribe();
+
+        return () => {
+            clearInterval(checkTimer);
+            supabase.removeChannel(lessonChannel);
+            supabase.removeChannel(settingsChannel);
+        };
+    }, [isArchive, lessonId]);
+
+    // 2. Fetch and Subscribe to Messages
+    useEffect(() => {
         const fetchMessages = async () => {
-            let query = supabase
-                .from("messages")
-                .select("*, profiles(full_name, role)");
+            let query = supabase.from("messages").select("*, profiles(full_name, role)");
 
             if (isArchive && lessonId) {
-                // Load messages for specific lesson
                 query = query.eq('lesson_id', lessonId);
             } else if (activeLesson) {
-                // Load messages for current active lesson
                 query = query.eq('lesson_id', activeLesson.id);
             } else {
-                // Fallback: Just load today's messages if no active lesson found
                 const isToday = selectedDate === new Date().toISOString().split('T')[0];
                 if (isToday) {
                     query = query.order("created_at", { ascending: false }).limit(50);
@@ -112,65 +143,41 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
         fetchMessages();
 
-        // Update last_read_at when viewing today's chat
-        const isToday = selectedDate === new Date().toISOString().split('T')[0];
-        if (isToday) {
-            supabase
-                .from("profiles")
-                .update({ last_read_at: new Date().toISOString() })
-                .eq("id", userProfile.id)
-                .then(() => { });
-        }
+        const channelKey = isArchive ? `lesson-archive-${lessonId}` : (activeLesson ? `lesson-live-${activeLesson.id}` : 'chat-global');
+        const chatChannel = supabase.channel(channelKey).on("postgres_changes", {
+            event: "INSERT",
+            schema: "public",
+            table: "messages"
+        }, async (payload) => {
+            const newMessage = payload.new as Message;
 
-        const chatChannel = supabase
-            .channel(`lesson-chat-${lessonId || activeLesson?.id || 'global'}`)
-            .on("postgres_changes", {
-                event: "INSERT",
-                schema: "public",
-                table: "messages",
-                filter: lessonId || activeLesson?.id ? `lesson_id=eq.${lessonId || activeLesson?.id}` : undefined
-            }, async (payload) => {
-                if (isToday) {
-                    const newMessage = payload.new as Message;
+            // Filtering for specific lesson if active
+            if (activeLesson && newMessage.lesson_id !== activeLesson.id) return;
+            if (isArchive && newMessage.lesson_id !== lessonId) return;
+            if (!activeLesson && !isArchive && newMessage.lesson_id) return; // Don't show lesson messages in global fallback
 
-                    // Enrich with profile info for badges
-                    const { data: profileData } = await supabase
-                        .from("profiles")
-                        .select("full_name, role")
-                        .eq("id", newMessage.user_id)
-                        .single();
+            const { data: profileData } = await supabase.from("profiles").select("full_name, role").eq("id", newMessage.user_id).single();
+            const messageWithProfile = { ...newMessage, profiles: profileData as any };
 
-                    if (profileData) {
-                        newMessage.profiles = profileData;
-                    }
+            setMessages((prev) => [...prev, messageWithProfile]);
 
-                    setMessages((prev) => [...prev, newMessage]);
-                    // Auto-update last_read_at on new messages
-                    supabase
-                        .from("profiles")
-                        .update({ last_read_at: new Date().toISOString() })
-                        .eq("id", userProfile.id)
-                        .then(() => { });
-                }
-            })
-            .subscribe();
+            if (!isArchive) {
+                setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 100);
+            }
+        }).subscribe();
 
         return () => {
-            supabase.removeChannel(settingsChannel);
             supabase.removeChannel(chatChannel);
         };
-    }, [selectedDate, userProfile.id]);
+    }, [activeLesson?.id, lessonId, isArchive, selectedDate]);
 
+    // 3. UI Helpers
     useEffect(() => {
         const scrollContainer = scrollRef.current;
         if (scrollContainer && !showJumpBtn) {
-            // Smoothly scroll to bottom on new messages
-            scrollContainer.scrollTo({
-                top: scrollContainer.scrollHeight,
-                behavior: 'smooth'
-            });
+            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
         }
-    }, [messages.length]); // Only snap when message count changes
+    }, [messages.length]);
 
     const handleScroll = () => {
         if (scrollRef.current) {
@@ -182,18 +189,14 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
     const scrollToBottom = () => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTo({
-                top: scrollRef.current.scrollHeight,
-                behavior: 'smooth'
-            });
+            scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
         }
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Allow if: !locked OR isStaff OR specifically unlocked
         if (!newMessage.trim() || (isChatLocked && !isStaff && !userProfile.is_unlocked)) return;
-        if (!activeLesson && !isArchive) return; // Must have an active lesson to chat
+        if (!activeLesson && !isArchive) return;
 
         const { error } = await supabase.from("messages").insert({
             content: newMessage,
@@ -201,31 +204,28 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             lesson_id: lessonId || activeLesson?.id
         });
 
-        if (!error) setNewMessage("");
+        if (!error) {
+            setNewMessage("");
+            // Update last read
+            await supabase.from("profiles").update({ last_read_at: new Date().toISOString() }).eq("id", userProfile.id);
+        }
     };
 
     const toggleRaiseHand = async () => {
-        const { error } = await supabase
-            .from("profiles")
-            .update({ is_hand_raised: !userProfile.is_hand_raised })
-            .eq("id", userProfile.id);
-        if (error) {
-            console.error("Error toggling hand raised status:", error);
-            alert("Failed to update hand raised status.");
-        }
+        await supabase.from("profiles").update({ is_hand_raised: !userProfile.is_hand_raised }).eq("id", userProfile.id);
     };
 
     return (
         <div className={styles.chatContainer}>
             <div className={styles.chatHeader}>
                 <div className={styles.status}>
-                    <div className={styles.onlineDot}></div>
+                    <div className={styles.onlineDot} style={{ background: activeLesson?.status === 'live' ? 'var(--success)' : 'var(--secondary)' }}></div>
                     <div className={styles.topicInfo}>
                         <span className={styles.statusLabel}>
-                            {isArchive ? "Lesson Archive" : (activeLesson?.status === 'live' ? "Live Lesson" : "Scheduled")}
+                            {isArchive ? "Archive" : (activeLesson?.status === 'live' ? "Live Class" : (activeLesson?.status === 'scheduled' ? "Scheduled" : "No active lesson"))}
                         </span>
                         <h4 className={styles.topicName}>
-                            {activeLesson?.topic || "No Active Lesson"}
+                            {activeLesson?.topic || "Discussion Board"}
                         </h4>
                     </div>
                 </div>
@@ -244,21 +244,9 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                             variant={isChatLocked ? "error" : "outline"}
                             size="sm"
                             onClick={async () => {
-                                try {
-                                    const newLockState = !isChatLocked;
-                                    setIsChatLocked(newLockState);
-
-                                    const { error } = await supabase
-                                        .from("platform_settings")
-                                        .update({ value: { is_locked: newLockState } })
-                                        .eq("key", "chat_lock");
-
-                                    if (error) throw error;
-                                } catch (err: any) {
-                                    console.error("Lock toggle failed:", err);
-                                    setIsChatLocked(isChatLocked); // Revert
-                                    alert(`Failed to update lock: ${err.message || "Ensure you are a staff member (Admin/TA) in the database."}`);
-                                }
+                                const newLockState = !isChatLocked;
+                                setIsChatLocked(newLockState);
+                                await supabase.from("platform_settings").update({ value: { is_locked: newLockState } }).eq("key", "chat_lock");
                             }}
                             className={styles.lockBtn}
                         >
@@ -274,15 +262,13 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                     {messages.map((msg) => (
                         <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
                             <div className={styles.avatar}>
-                                {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || msg.user_id.substring(0, 1).toUpperCase()}
+                                {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || "?"}
                                 {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
                                 {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
                             </div>
                             <div className={styles.contentWrapper}>
                                 <div className={styles.senderHeader}>
-                                    <span className={styles.senderName}>
-                                        {msg.user_id === userProfile.id ? "You" : (msg.profiles?.full_name || "Unknown User")}
-                                    </span>
+                                    <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
                                 </div>
                                 <div className={styles.msgBubble}>
                                     <div className={styles.msgContent}>{msg.content}</div>
@@ -291,13 +277,6 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
-                                </div>
-                                <div className={styles.reactions}>
-                                    {Object.entries(msg.reactions || {}).map(([emoji, users]) => (
-                                        <span key={emoji} className={styles.reaction}>
-                                            {emoji} {users.length}
-                                        </span>
-                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -313,7 +292,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             <form onSubmit={handleSendMessage} className={styles.inputArea}>
                 {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
                     <div className={styles.lockedArea}>
-                        <span>Chat is locked by Admin</span>
+                        <span>Chat is locked for this lesson</span>
                         <Button
                             variant={userProfile.is_hand_raised ? "secondary" : "primary"}
                             size="sm"

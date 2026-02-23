@@ -70,19 +70,21 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
     };
 
     const updateStatus = async (lessonId: string, status: 'live' | 'completed') => {
-        const updates: any = { status };
-        if (status === 'live') updates.started_at = new Date().toISOString();
-        if (status === 'completed') updates.ended_at = new Date().toISOString();
+        try {
+            const updates: any = { status };
+            if (status === 'live') updates.started_at = new Date().toISOString();
+            if (status === 'completed') updates.ended_at = new Date().toISOString();
 
-        const { error } = await supabase
-            .from('lessons')
-            .update(updates)
-            .eq('id', lessonId);
+            const { error } = await supabase
+                .from('lessons')
+                .update(updates)
+                .eq('id', lessonId);
 
-        if (error) {
-            console.error("Error updating lesson status:", error);
-        } else {
+            if (error) throw error;
             fetchLessons();
+        } catch (err: any) {
+            console.error("Error updating lesson status:", err);
+            alert(`Failed to update lesson: ${err.message || 'Unknown error'}`);
         }
     };
 
