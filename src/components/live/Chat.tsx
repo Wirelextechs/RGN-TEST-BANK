@@ -51,7 +51,6 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const [showJumpBtn, setShowJumpBtn] = useState(false);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
     const activeLessonRef = useRef<string | null>(null);
 
     // Swipe tracking refs
@@ -300,7 +299,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         // If swiped past threshold, trigger reply
         if (diff > 50) {
             setReplyingTo(msg);
-            inputRef.current?.focus();
+            (document.getElementById('chat-input')?.querySelector('input') as HTMLInputElement)?.focus();
         }
 
         swipingMsgId.current = null;
@@ -309,7 +308,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     // Double-click/tap to reply (desktop fallback)
     const handleDoubleClick = (msg: Message) => {
         setReplyingTo(msg);
-        inputRef.current?.focus();
+        (document.getElementById('chat-input')?.querySelector('input') as HTMLInputElement)?.focus();
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -508,7 +507,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                         ) : (
                             <>
                                 <Input
-                                    ref={inputRef}
+                                    id="chat-input"
                                     placeholder={replyingTo ? "Type your reply..." : "Type your message..."}
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
