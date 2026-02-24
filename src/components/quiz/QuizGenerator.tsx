@@ -26,7 +26,6 @@ export const QuizGenerator = () => {
         setStatus("idle");
 
         try {
-            // For this demo, we simulate the API call to Gemini
             const formData = new FormData();
             formData.append("file", file);
 
@@ -35,14 +34,21 @@ export const QuizGenerator = () => {
                 body: formData,
             });
 
-            if (!response.ok) throw new Error("Parsing failed");
-
             const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Parsing failed");
+            }
+
+            if (!data.quiz || data.quiz.length === 0) {
+                throw new Error("No MCQ questions found in document");
+            }
+
             setStatus("success");
-            setMessage(`Successfully generated ${data.quiz.length} questions!`);
-        } catch (err) {
+            setMessage(`Successfully extracted ${data.quiz.length} questions!`);
+        } catch (err: any) {
             setStatus("error");
-            setMessage("Failed to parse document. Please ensure it contains MCQs.");
+            setMessage(err.message || "Failed to parse document. Please ensure it contains MCQs.");
         } finally {
             setIsUploading(false);
         }

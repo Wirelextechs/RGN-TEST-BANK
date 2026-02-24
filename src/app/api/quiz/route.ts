@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseDocumentToQuiz } from "@/lib/gemini";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'placeholder-key');
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,16 +12,100 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
-        // Read file content as text
-        // Note: For binary files (PDF/Word), you'd normally use a library like pdf-parse 
-        // but here we demonstrate the AI integration logic.
-        const text = await file.text();
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-        const quiz = await parseDocumentToQuiz(text);
+        // Read file as ArrayBuffer for binary processing
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const base64Data = Buffer.from(uint8Array).toString('base64');
+
+        // Determine MIME type
+        const mimeType = file.type || getMimeType(file.name);
+
+        const prompt = `You are an expert MCQ extractor. Analyze this uploaded document carefully.
+
+Extract ALL Multiple Choice Questions (MCQs) found in the document.
+
+Return your response as a STRICT JSON array with this exact structure:
+[
+  {
+    "question": "The full text of the question",
+    "options": ["A. Option text", "B. Option text", "C. Option text", "D. Option text"],
+    "correctAnswer": "The full text of the correct option exactly as it appears in options array"
+  }
+]
+
+IMPORTANT RULES:
+- Extract EVERY question, do not skip any
+- Include the letter prefix (A., B., C., D.) in each option
+- For "correctAnswer", use the EXACT string from the options array
+- If the document includes answer keys or "Correct Answer:" markers, use those
+- If no explicit answer is marked, make your best educated guess based on medical/nursing knowledge
+- Return ONLY the raw JSON array, no markdown, no code blocks, no other text
+- If there are sub-questions or multi-part questions, treat each part as a separate question`;
+
+        // Send the file directly to Gemini (it can read PDFs, images, docs natively)
+        const result = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: mimeType
+                }
+            }
+        ]);
+
+        const response = await result.response;
+        let jsonText = response.text()
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/g, '')
+            .trim();
+
+        // Try to extract JSON array if there's extra text
+        const jsonMatch = jsonText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            jsonText = jsonMatch[0];
+        }
+
+        let quiz;
+        try {
+            quiz = JSON.parse(jsonText);
+        } catch (parseErr) {
+            console.error("Failed to parse Gemini response:", jsonText.substring(0, 500));
+            throw new Error("AI returned invalid JSON format");
+        }
+
+        if (!Array.isArray(quiz) || quiz.length === 0) {
+            throw new Error("No questions extracted from document");
+        }
+
+        // Validate and clean each question
+        quiz = quiz.map((q: any, i: number) => ({
+            question: q.question || `Question ${i + 1}`,
+            options: Array.isArray(q.options) ? q.options : [],
+            correctAnswer: q.correctAnswer || q.correct_answer || q.answer || (q.options?.[0] || "")
+        })).filter((q: any) => q.options.length >= 2);
 
         return NextResponse.json({ quiz });
     } catch (error: any) {
         console.error("Quiz generation error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json(
+            { error: error.message || "Failed to process document" },
+            { status: 500 }
+        );
+    }
+}
+
+function getMimeType(filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'pdf': return 'application/pdf';
+        case 'doc': return 'application/msword';
+        case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        case 'txt': return 'text/plain';
+        case 'png': return 'image/png';
+        case 'jpg':
+        case 'jpeg': return 'image/jpeg';
+        default: return 'application/octet-stream';
     }
 }
