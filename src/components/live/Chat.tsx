@@ -25,6 +25,11 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const [showJumpBtn, setShowJumpBtn] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    const isEffectiveLive = !isArchive && (
+        activeLesson?.status === 'live' ||
+        (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= new Date())
+    );
+
     // 1. Manage Lesson Context and Global Subscriptions
     useEffect(() => {
         const fetchLessonContext = async () => {
@@ -223,7 +228,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                     <div className={styles.topicInfo}>
                         <span className={styles.statusLabel}>
                             {isArchive ? "Archive" : (
-                                (activeLesson?.status === 'live' || (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= new Date()))
+                                isEffectiveLive
                                     ? "Live Class"
                                     : (activeLesson?.status === 'scheduled' ? "Scheduled" : "No active lesson")
                             )}
@@ -296,15 +301,17 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             <form onSubmit={handleSendMessage} className={styles.inputArea}>
                 {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
                     <div className={styles.lockedArea}>
-                        <span>Chat is locked for this lesson</span>
-                        <Button
-                            variant={userProfile.is_hand_raised ? "secondary" : "primary"}
-                            size="sm"
-                            onClick={toggleRaiseHand}
-                        >
-                            <Hand size={14} />
-                            {userProfile.is_hand_raised ? "Hand Raised" : "Raise Hand"}
-                        </Button>
+                        <span>{isEffectiveLive ? "Chat is locked for this lesson" : "Discussion Board (Scheduled)"}</span>
+                        {isEffectiveLive && (
+                            <Button
+                                variant={userProfile.is_hand_raised ? "secondary" : "primary"}
+                                size="sm"
+                                onClick={toggleRaiseHand}
+                            >
+                                <Hand size={14} />
+                                {userProfile.is_hand_raised ? "Hand Raised" : "Raise Hand"}
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <>
