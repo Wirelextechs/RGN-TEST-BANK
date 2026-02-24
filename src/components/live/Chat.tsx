@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar } from "lucide-react";
@@ -32,105 +32,122 @@ const healthInsights = [
     "Staying socially active can help improve mental health and longevity."
 ];
 
+const getDailyInsight = () => {
+    const dateString = new Date().toISOString().split('T')[0];
+    let hash = 0;
+    for (let i = 0; i < dateString.length; i++) {
+        hash = dateString.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return healthInsights[Math.abs(hash) % healthInsights.length];
+};
+
 export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatProps) => {
     const isStaff = isAdmin || isTA;
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
-    const [isChatLocked, setIsChatLocked] = useState(false);
+    const [isChatLocked, setIsChatLocked] = useState(true);
     const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [showJumpBtn, setShowJumpBtn] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Use ref to track lesson ID for comparison in polling (avoids stale closure)
+    const activeLessonRef = useRef<string | null>(null);
+
+    // Stable fetch function using useCallback
+    const fetchLessonContext = useCallback(async () => {
+        if (isArchive && lessonId) {
+            const { data } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
+            if (data) {
+                setActiveLesson(data);
+                activeLessonRef.current = data.id;
+            }
+            setIsChatLocked(true);
+            return;
+        }
+
+        // Query for LIVE lessons first
+        const { data: liveLessons } = await supabase
+            .from('lessons')
+            .select('*')
+            .eq('status', 'live')
+            .order('started_at', { ascending: false })
+            .limit(1);
+
+        let lesson = liveLessons && liveLessons.length > 0 ? liveLessons[0] : null;
+
+        if (!lesson) {
+            // Find next upcoming scheduled lesson
+            const { data: scheduledLessons } = await supabase
+                .from('lessons')
+                .select('*')
+                .eq('status', 'scheduled')
+                .order('scheduled_at', { ascending: true })
+                .limit(1);
+            lesson = scheduledLessons && scheduledLessons.length > 0 ? scheduledLessons[0] : null;
+        }
+
+        if (lesson) {
+            const previousId = activeLessonRef.current;
+            setActiveLesson(lesson);
+            activeLessonRef.current = lesson.id;
+
+            const now = new Date();
+            const scheduledAt = new Date(lesson.scheduled_at);
+            const isTimeDue = scheduledAt <= now;
+
+            if (lesson.status === 'scheduled' && !isTimeDue) {
+                setIsChatLocked(true);
+            } else if (lesson.status === 'completed') {
+                setIsChatLocked(true);
+            } else {
+                // Live or past-due scheduled — check global lock
+                const { data: settings } = await supabase.from("platform_settings").select("*").eq("key", "chat_lock").single();
+                if (settings?.value) setIsChatLocked(settings.value.is_locked);
+                else setIsChatLocked(false);
+            }
+        } else {
+            // No active lesson at all — show insight card
+            if (activeLessonRef.current !== null) {
+                // Lesson was active but now gone — force clear
+                console.log('[Chat] Lesson ended — transitioning to idle state');
+            }
+            setIsChatLocked(true);
+            setActiveLesson(null);
+            activeLessonRef.current = null;
+        }
+    }, [isArchive, lessonId]);
+
+    // Computed state
     const isEffectiveLive = !isArchive && (
         activeLesson?.status === 'live' ||
         (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= new Date())
     );
 
-    const getDailyInsight = () => {
-        const dateString = new Date().toISOString().split('T')[0];
-        let hash = 0;
-        for (let i = 0; i < dateString.length; i++) {
-            hash = dateString.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        return healthInsights[Math.abs(hash) % healthInsights.length];
-    };
+    const hasActiveSession = !!(activeLesson && (activeLesson.status === 'live' || activeLesson.status === 'scheduled'));
 
-    // 1. Manage Lesson Context and Global Subscriptions
+    // 1. Lesson Context: Initial fetch + aggressive polling + realtime subscription
     useEffect(() => {
-        const fetchLessonContext = async () => {
-            if (isArchive && lessonId) {
-                const { data } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
-                if (data) setActiveLesson(data);
-                setIsChatLocked(true);
-                return;
-            }
-
-            // Prioritize LIVE lessons (most recent started first)
-            const { data: liveLessons } = await supabase
-                .from('lessons')
-                .select('*')
-                .eq('status', 'live')
-                .order('started_at', { ascending: false })
-                .limit(1);
-
-            let lesson = liveLessons && liveLessons.length > 0 ? liveLessons[0] : null;
-
-            if (!lesson) {
-                // Find next upcoming scheduled lesson
-                const { data: scheduledLessons } = await supabase
-                    .from('lessons')
-                    .select('*')
-                    .eq('status', 'scheduled')
-                    .order('scheduled_at', { ascending: true })
-                    .limit(1);
-                lesson = scheduledLessons && scheduledLessons.length > 0 ? scheduledLessons[0] : null;
-            }
-
-            if (lesson) {
-                setActiveLesson(lesson);
-                const now = new Date();
-                const scheduledAt = new Date(lesson.scheduled_at);
-                const isTimeDue = scheduledAt <= now;
-
-                if (lesson.status === 'scheduled' && !isTimeDue) {
-                    setIsChatLocked(true);
-                } else if (lesson.status === 'completed') {
-                    setIsChatLocked(true);
-                } else {
-                    // Check global chat lock setting
-                    const { data: settings } = await supabase.from("platform_settings").select("*").eq("key", "chat_lock").single();
-                    if (settings?.value) setIsChatLocked(settings.value.is_locked);
-                    else setIsChatLocked(false);
-                }
-            } else {
-                setIsChatLocked(true);
-                setActiveLesson(null);
-            }
-        };
-
+        // Initial fetch
         fetchLessonContext();
 
-        // Polling for auto-start
-        const checkTimer = setInterval(() => {
-            const now = new Date();
-            if (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= now) {
-                setIsChatLocked(false);
-                fetchLessonContext();
-            }
-        }, 10000);
+        // AGGRESSIVE POLLING every 3 seconds — this is the PRIMARY mechanism
+        // for detecting lesson transitions. Supabase Realtime is a bonus.
+        const pollTimer = setInterval(() => {
+            fetchLessonContext();
+        }, 3000);
 
-        // Subscriptions
-        const lessonChannel = supabase.channel('lesson-status-updates').on('postgres_changes', {
-            event: 'UPDATE',
+        // Supabase Realtime subscription as a BONUS (fires instantly if enabled)
+        const lessonChannel = supabase.channel('lesson-status-live').on('postgres_changes', {
+            event: '*',
             schema: 'public',
             table: 'lessons'
         }, () => {
-            // Always refresh context on any lesson update to ensure instant transitions
             fetchLessonContext();
         }).subscribe();
 
-        const settingsChannel = supabase.channel("platform-settings").on("postgres_changes", {
+        // Settings subscription for chat lock
+        const settingsChannel = supabase.channel("platform-settings-live").on("postgres_changes", {
             event: "UPDATE",
             schema: "public",
             table: "platform_settings",
@@ -140,14 +157,19 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         }).subscribe();
 
         return () => {
-            clearInterval(checkTimer);
+            clearInterval(pollTimer);
             supabase.removeChannel(lessonChannel);
             supabase.removeChannel(settingsChannel);
         };
-    }, [isArchive, lessonId]);
+    }, [fetchLessonContext]);
 
-    // 2. Fetch and Subscribe to Messages
+    // 2. Fetch and Subscribe to Messages (re-runs when activeLesson changes)
     useEffect(() => {
+        if (!activeLesson && !isArchive) {
+            setMessages([]);
+            return;
+        }
+
         const fetchMessages = async () => {
             let query = supabase.from("messages").select("*, profiles(full_name, role)");
 
@@ -172,21 +194,23 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
         fetchMessages();
 
-        const channelKey = isArchive ? `lesson-archive-${lessonId}` : (activeLesson ? `lesson-live-${activeLesson.id}` : 'chat-global');
+        const channelKey = isArchive
+            ? `lesson-archive-${lessonId}`
+            : (activeLesson ? `lesson-live-${activeLesson.id}` : 'chat-global');
+
         const chatChannel = supabase.channel(channelKey).on("postgres_changes", {
             event: "INSERT",
             schema: "public",
             table: "messages"
         }, async (payload) => {
-            const newMessage = payload.new as Message;
+            const msg = payload.new as Message;
 
-            // Filtering for specific lesson if active
-            if (activeLesson && newMessage.lesson_id !== activeLesson.id) return;
-            if (isArchive && newMessage.lesson_id !== lessonId) return;
-            if (!activeLesson && !isArchive && newMessage.lesson_id) return; // Don't show lesson messages in global fallback
+            if (activeLesson && msg.lesson_id !== activeLesson.id) return;
+            if (isArchive && msg.lesson_id !== lessonId) return;
+            if (!activeLesson && !isArchive && msg.lesson_id) return;
 
-            const { data: profileData } = await supabase.from("profiles").select("full_name, role").eq("id", newMessage.user_id).single();
-            const messageWithProfile = { ...newMessage, profiles: profileData as any };
+            const { data: profileData } = await supabase.from("profiles").select("full_name, role").eq("id", msg.user_id).single();
+            const messageWithProfile = { ...msg, profiles: profileData as any };
 
             setMessages((prev) => [...prev, messageWithProfile]);
 
@@ -200,7 +224,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         };
     }, [activeLesson?.id, lessonId, isArchive, selectedDate]);
 
-    // 3. UI Helpers
+    // 3. Auto-scroll on new messages
     useEffect(() => {
         const scrollContainer = scrollRef.current;
         if (scrollContainer && !showJumpBtn) {
@@ -224,8 +248,13 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || (isChatLocked && !isStaff && !userProfile.is_unlocked)) return;
-        if (!activeLesson && !isArchive) return;
+        if (!newMessage.trim()) return;
+
+        // Block sending if no active session
+        if (!hasActiveSession && !isArchive) return;
+
+        // Block sending if chat is locked and user is not staff/unlocked
+        if (isChatLocked && !isStaff && !userProfile.is_unlocked) return;
 
         const { error } = await supabase.from("messages").insert({
             content: newMessage,
@@ -235,7 +264,6 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
         if (!error) {
             setNewMessage("");
-            // Update last read
             await supabase.from("profiles").update({ last_read_at: new Date().toISOString() }).eq("id", userProfile.id);
         }
     };
@@ -248,7 +276,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         <div className={styles.chatContainer}>
             <div className={styles.chatHeader}>
                 <div className={styles.status}>
-                    <div className={styles.onlineDot} style={{ background: activeLesson?.status === 'live' ? 'var(--success)' : 'var(--secondary)' }}></div>
+                    <div className={styles.onlineDot} style={{ background: isEffectiveLive ? 'var(--success)' : 'var(--secondary)' }}></div>
                     <div className={styles.topicInfo}>
                         <span className={styles.statusLabel}>
                             {isArchive ? "Archive" : (
@@ -257,42 +285,44 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                     : (activeLesson?.status === 'scheduled' ? "Scheduled" : "No active lesson")
                             )}
                         </span>
-                        {activeLesson && (activeLesson.status === 'live' || activeLesson.status === 'scheduled') ? (
-                            <h4 className={styles.topicName}>{activeLesson.topic}</h4>
+                        {hasActiveSession ? (
+                            <h4 className={styles.topicName}>{activeLesson!.topic}</h4>
                         ) : (
                             <span className={styles.topicName}>Health & Wellness</span>
                         )}
                     </div>
                 </div>
-                <div className={styles.headerTools}>
-                    <div className={styles.datePicker}>
-                        <Calendar size={14} />
-                        <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            max={new Date().toISOString().split('T')[0]}
-                        />
+                {hasActiveSession && (
+                    <div className={styles.headerTools}>
+                        <div className={styles.datePicker}>
+                            <Calendar size={14} />
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                max={new Date().toISOString().split('T')[0]}
+                            />
+                        </div>
+                        {isStaff && (
+                            <Button
+                                variant={isChatLocked ? "error" : "outline"}
+                                size="sm"
+                                onClick={async () => {
+                                    const newLockState = !isChatLocked;
+                                    setIsChatLocked(newLockState);
+                                    await supabase.from("platform_settings").update({ value: { is_locked: newLockState } }).eq("key", "chat_lock");
+                                }}
+                                className={styles.lockBtn}
+                            >
+                                {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                <span>{isChatLocked ? "Locked" : "Lock"}</span>
+                            </Button>
+                        )}
                     </div>
-                    {isStaff && (
-                        <Button
-                            variant={isChatLocked ? "error" : "outline"}
-                            size="sm"
-                            onClick={async () => {
-                                const newLockState = !isChatLocked;
-                                setIsChatLocked(newLockState);
-                                await supabase.from("platform_settings").update({ value: { is_locked: newLockState } }).eq("key", "chat_lock");
-                            }}
-                            className={styles.lockBtn}
-                        >
-                            {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
-                            <span>{isChatLocked ? "Locked" : "Lock"}</span>
-                        </Button>
-                    )}
-                </div>
+                )}
             </div>
 
-            {(!activeLesson && !isArchive) ? (
+            {(!hasActiveSession && !isArchive) ? (
                 <div className={styles.idleState}>
                     <div className={styles.insightCard}>
                         <div className={styles.insightIcon}>💡</div>
@@ -340,7 +370,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                     <form onSubmit={handleSendMessage} className={styles.inputArea}>
                         {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
                             <div className={styles.lockedArea}>
-                                <span>{isEffectiveLive ? "Chat is locked for this lesson" : "Discussion Board (Scheduled)"}</span>
+                                <span>{isEffectiveLive ? "Chat is locked" : "Waiting for class to start..."}</span>
                                 {isEffectiveLive && (
                                     <Button
                                         variant={userProfile.is_hand_raised ? "secondary" : "primary"}
