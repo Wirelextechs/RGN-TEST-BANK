@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar } from "lucide-react";
+import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar, X, Reply } from "lucide-react";
 import styles from "./Chat.module.css";
 import { supabase, Message, Profile, Lesson } from "@/lib/supabase";
 
@@ -49,12 +49,16 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [showJumpBtn, setShowJumpBtn] = useState(false);
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
-
-    // Use ref to track lesson ID for comparison in polling (avoids stale closure)
+    const inputRef = useRef<HTMLInputElement>(null);
     const activeLessonRef = useRef<string | null>(null);
 
-    // Stable fetch function using useCallback
+    // Swipe tracking refs
+    const touchStartX = useRef(0);
+    const touchCurrentX = useRef(0);
+    const swipingMsgId = useRef<string | null>(null);
+
     const fetchLessonContext = useCallback(async () => {
         if (isArchive && lessonId) {
             const { data } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
@@ -66,7 +70,6 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             return;
         }
 
-        // Query for LIVE lessons first
         const { data: liveLessons } = await supabase
             .from('lessons')
             .select('*')
@@ -77,7 +80,6 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         let lesson = liveLessons && liveLessons.length > 0 ? liveLessons[0] : null;
 
         if (!lesson) {
-            // Find next upcoming scheduled lesson
             const { data: scheduledLessons } = await supabase
                 .from('lessons')
                 .select('*')
@@ -88,7 +90,6 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         }
 
         if (lesson) {
-            const previousId = activeLessonRef.current;
             setActiveLesson(lesson);
             activeLessonRef.current = lesson.id;
 
@@ -101,24 +102,17 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             } else if (lesson.status === 'completed') {
                 setIsChatLocked(true);
             } else {
-                // Live or past-due scheduled — check global lock
                 const { data: settings } = await supabase.from("platform_settings").select("*").eq("key", "chat_lock").single();
                 if (settings?.value) setIsChatLocked(settings.value.is_locked);
                 else setIsChatLocked(false);
             }
         } else {
-            // No active lesson at all — show insight card
-            if (activeLessonRef.current !== null) {
-                // Lesson was active but now gone — force clear
-                console.log('[Chat] Lesson ended — transitioning to idle state');
-            }
             setIsChatLocked(true);
             setActiveLesson(null);
             activeLessonRef.current = null;
         }
     }, [isArchive, lessonId]);
 
-    // Computed state
     const isEffectiveLive = !isArchive && (
         activeLesson?.status === 'live' ||
         (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= new Date())
@@ -126,35 +120,18 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
 
     const hasActiveSession = !!(activeLesson && (activeLesson.status === 'live' || activeLesson.status === 'scheduled'));
 
-    // 1. Lesson Context: Initial fetch + aggressive polling + realtime subscription
+    // 1. Lesson Context: Initial fetch + aggressive polling + realtime
     useEffect(() => {
-        // Initial fetch
         fetchLessonContext();
+        const pollTimer = setInterval(() => { fetchLessonContext(); }, 3000);
 
-        // AGGRESSIVE POLLING every 3 seconds — this is the PRIMARY mechanism
-        // for detecting lesson transitions. Supabase Realtime is a bonus.
-        const pollTimer = setInterval(() => {
-            fetchLessonContext();
-        }, 3000);
-
-        // Supabase Realtime subscription as a BONUS (fires instantly if enabled)
         const lessonChannel = supabase.channel('lesson-status-live').on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'lessons'
-        }, () => {
-            fetchLessonContext();
-        }).subscribe();
+            event: '*', schema: 'public', table: 'lessons'
+        }, () => { fetchLessonContext(); }).subscribe();
 
-        // Settings subscription for chat lock
         const settingsChannel = supabase.channel("platform-settings-live").on("postgres_changes", {
-            event: "UPDATE",
-            schema: "public",
-            table: "platform_settings",
-            filter: "key=eq.chat_lock"
-        }, (payload) => {
-            setIsChatLocked(payload.new.value.is_locked);
-        }).subscribe();
+            event: "UPDATE", schema: "public", table: "platform_settings", filter: "key=eq.chat_lock"
+        }, (payload) => { setIsChatLocked(payload.new.value.is_locked); }).subscribe();
 
         return () => {
             clearInterval(pollTimer);
@@ -163,12 +140,9 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         };
     }, [fetchLessonContext]);
 
-    // 2. Fetch and Subscribe to Messages (re-runs when activeLesson changes)
+    // 2. Fetch and Subscribe to Messages
     useEffect(() => {
-        if (!activeLesson && !isArchive) {
-            setMessages([]);
-            return;
-        }
+        if (!activeLesson && !isArchive) { setMessages([]); return; }
 
         const fetchMessages = async () => {
             let query = supabase.from("messages").select("*, profiles(full_name, role)");
@@ -189,7 +163,11 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             }
 
             const { data } = await query.order("created_at", { ascending: true });
-            if (data) setMessages(data as any);
+            if (data) {
+                // Enrich messages with reply data
+                const enriched = await enrichReplies(data as any);
+                setMessages(enriched);
+            }
         };
 
         fetchMessages();
@@ -199,32 +177,61 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             : (activeLesson ? `lesson-live-${activeLesson.id}` : 'chat-global');
 
         const chatChannel = supabase.channel(channelKey).on("postgres_changes", {
-            event: "INSERT",
-            schema: "public",
-            table: "messages"
+            event: "INSERT", schema: "public", table: "messages"
         }, async (payload) => {
             const msg = payload.new as Message;
-
             if (activeLesson && msg.lesson_id !== activeLesson.id) return;
             if (isArchive && msg.lesson_id !== lessonId) return;
             if (!activeLesson && !isArchive && msg.lesson_id) return;
 
             const { data: profileData } = await supabase.from("profiles").select("full_name, role").eq("id", msg.user_id).single();
-            const messageWithProfile = { ...msg, profiles: profileData as any };
+            let messageWithProfile: Message = { ...msg, profiles: profileData as any };
+
+            // Enrich reply data if this message is a reply
+            if (msg.reply_to) {
+                const { data: replyData } = await supabase
+                    .from("messages")
+                    .select("id, content, profiles(full_name)")
+                    .eq("id", msg.reply_to)
+                    .single();
+                if (replyData) {
+                    messageWithProfile.reply_message = replyData as any;
+                }
+            }
 
             setMessages((prev) => [...prev, messageWithProfile]);
-
             if (!isArchive) {
                 setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 100);
             }
         }).subscribe();
 
-        return () => {
-            supabase.removeChannel(chatChannel);
-        };
+        return () => { supabase.removeChannel(chatChannel); };
     }, [activeLesson?.id, lessonId, isArchive, selectedDate]);
 
-    // 3. Auto-scroll on new messages
+    // Helper: enrich messages array with reply data
+    const enrichReplies = async (msgs: Message[]): Promise<Message[]> => {
+        const replyIds = msgs.filter(m => m.reply_to).map(m => m.reply_to!);
+        if (replyIds.length === 0) return msgs;
+
+        const uniqueIds = [...new Set(replyIds)];
+        const { data: replyMessages } = await supabase
+            .from("messages")
+            .select("id, content, profiles(full_name)")
+            .in("id", uniqueIds);
+
+        if (!replyMessages) return msgs;
+
+        const replyMap = new Map(replyMessages.map((rm: any) => [rm.id, rm]));
+
+        return msgs.map(m => {
+            if (m.reply_to && replyMap.has(m.reply_to)) {
+                return { ...m, reply_message: replyMap.get(m.reply_to) };
+            }
+            return m;
+        });
+    };
+
+    // 3. Auto-scroll
     useEffect(() => {
         const scrollContainer = scrollRef.current;
         if (scrollContainer && !showJumpBtn) {
@@ -235,35 +242,97 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const handleScroll = () => {
         if (scrollRef.current) {
             const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-            const isBottom = scrollHeight - scrollTop - clientHeight < 100;
-            setShowJumpBtn(!isBottom);
+            setShowJumpBtn(scrollHeight - scrollTop - clientHeight > 100);
         }
     };
 
     const scrollToBottom = () => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    };
+
+    // Scroll to a specific message (when clicking a reply quote)
+    const scrollToMessage = (messageId: string) => {
+        const el = document.getElementById(`msg-${messageId}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add(styles.highlighted);
+            setTimeout(() => el.classList.remove(styles.highlighted), 2000);
         }
+    };
+
+    // Swipe-to-reply handlers
+    const handleTouchStart = (e: React.TouchEvent, msg: Message) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchCurrentX.current = e.touches[0].clientX;
+        swipingMsgId.current = msg.id;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent, msg: Message) => {
+        if (swipingMsgId.current !== msg.id) return;
+        touchCurrentX.current = e.touches[0].clientX;
+        const diff = touchCurrentX.current - touchStartX.current;
+
+        // Only allow swipe right (positive direction), max 80px
+        const swipeAmount = Math.min(Math.max(diff, 0), 80);
+        const el = document.getElementById(`msg-${msg.id}`);
+        if (el) {
+            el.style.transform = `translateX(${swipeAmount}px)`;
+            el.style.transition = 'none';
+
+            // Show reply indicator when past threshold
+            const indicator = el.querySelector(`.${styles.replyIndicator}`) as HTMLElement;
+            if (indicator) {
+                indicator.style.opacity = swipeAmount > 40 ? '1' : `${swipeAmount / 40}`;
+            }
+        }
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent, msg: Message) => {
+        if (swipingMsgId.current !== msg.id) return;
+        const diff = touchCurrentX.current - touchStartX.current;
+        const el = document.getElementById(`msg-${msg.id}`);
+
+        if (el) {
+            el.style.transform = 'translateX(0)';
+            el.style.transition = 'transform 0.3s ease';
+        }
+
+        // If swiped past threshold, trigger reply
+        if (diff > 50) {
+            setReplyingTo(msg);
+            inputRef.current?.focus();
+        }
+
+        swipingMsgId.current = null;
+    };
+
+    // Double-click/tap to reply (desktop fallback)
+    const handleDoubleClick = (msg: Message) => {
+        setReplyingTo(msg);
+        inputRef.current?.focus();
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
-
-        // Block sending if no active session
         if (!hasActiveSession && !isArchive) return;
-
-        // Block sending if chat is locked and user is not staff/unlocked
         if (isChatLocked && !isStaff && !userProfile.is_unlocked) return;
 
-        const { error } = await supabase.from("messages").insert({
+        const insertData: any = {
             content: newMessage,
             user_id: userProfile.id,
             lesson_id: lessonId || activeLesson?.id
-        });
+        };
+
+        if (replyingTo) {
+            insertData.reply_to = replyingTo.id;
+        }
+
+        const { error } = await supabase.from("messages").insert(insertData);
 
         if (!error) {
             setNewMessage("");
+            setReplyingTo(null);
             await supabase.from("profiles").update({ last_read_at: new Date().toISOString() }).eq("id", userProfile.id);
         }
     };
@@ -338,7 +407,20 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                     <div className={styles.messagesContainer}>
                         <div className={styles.messages} ref={scrollRef} onScroll={handleScroll}>
                             {messages.map((msg) => (
-                                <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
+                                <div
+                                    key={msg.id}
+                                    id={`msg-${msg.id}`}
+                                    className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}
+                                    onTouchStart={(e) => handleTouchStart(e, msg)}
+                                    onTouchMove={(e) => handleTouchMove(e, msg)}
+                                    onTouchEnd={(e) => handleTouchEnd(e, msg)}
+                                    onDoubleClick={() => handleDoubleClick(msg)}
+                                >
+                                    {/* Reply swipe indicator */}
+                                    <div className={styles.replyIndicator}>
+                                        <Reply size={16} />
+                                    </div>
+
                                     <div className={styles.avatar}>
                                         {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || "?"}
                                         {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
@@ -349,6 +431,22 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                             <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
                                         </div>
                                         <div className={styles.msgBubble}>
+                                            {/* Quoted reply preview */}
+                                            {msg.reply_message && (
+                                                <div
+                                                    className={styles.replyQuote}
+                                                    onClick={() => scrollToMessage(msg.reply_message!.id)}
+                                                >
+                                                    <span className={styles.replyAuthor}>
+                                                        {msg.reply_message.profiles?.full_name || "Unknown"}
+                                                    </span>
+                                                    <span className={styles.replyText}>
+                                                        {msg.reply_message.content.length > 80
+                                                            ? msg.reply_message.content.substring(0, 80) + "..."
+                                                            : msg.reply_message.content}
+                                                    </span>
+                                                </div>
+                                            )}
                                             <div className={styles.msgContent}>{msg.content}</div>
                                             <div className={styles.msgMeta}>
                                                 <span className={styles.timestamp}>
@@ -366,6 +464,31 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                             </button>
                         )}
                     </div>
+
+                    {/* Reply preview bar */}
+                    {replyingTo && (
+                        <div className={styles.replyPreview}>
+                            <div className={styles.replyPreviewContent}>
+                                <Reply size={14} />
+                                <div className={styles.replyPreviewText}>
+                                    <span className={styles.replyPreviewAuthor}>
+                                        {replyingTo.profiles?.full_name || "Unknown"}
+                                    </span>
+                                    <span className={styles.replyPreviewMsg}>
+                                        {replyingTo.content.length > 60
+                                            ? replyingTo.content.substring(0, 60) + "..."
+                                            : replyingTo.content}
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                className={styles.replyPreviewClose}
+                                onClick={() => setReplyingTo(null)}
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                    )}
 
                     <form onSubmit={handleSendMessage} className={styles.inputArea}>
                         {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
@@ -385,7 +508,8 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                         ) : (
                             <>
                                 <Input
-                                    placeholder="Type your message..."
+                                    ref={inputRef}
+                                    placeholder={replyingTo ? "Type your reply..." : "Type your message..."}
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     className={styles.input}

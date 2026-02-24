@@ -26,6 +26,12 @@ export type Message = {
     reactions: Record<string, string[]>; // { emoji: [user_id1, user_id2] }
     profiles?: { full_name: string; role: string };
     lesson_id?: string;
+    reply_to?: string;
+    reply_message?: {
+        id: string;
+        content: string;
+        profiles?: { full_name: string };
+    };
 };
 
 export type Lesson = {

@@ -240,11 +240,6 @@
     background: var(--accent);
 }
 
-.message {
-    display: flex;
-    gap: 0.75rem;
-    max-width: 85%;
-}
 
 .own {
     align-self: flex-end;
@@ -396,4 +391,179 @@
 .sendBtn {
     aspect-ratio: 1;
     padding: 0.5rem !important;
+}
+
+/* === Reply Feature Styles === */
+
+.replyIndicator {
+    position: absolute;
+    left: -28px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    color: var(--primary);
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.message {
+    position: relative;
+    display: flex;
+    gap: 0.75rem;
+    max-width: 85%;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+}
+
+.replyQuote {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem 0.65rem;
+    background: rgba(0, 0, 0, 0.06);
+    border-left: 3px solid var(--primary);
+    border-radius: 4px 8px 8px 4px;
+    margin-bottom: 0.25rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.replyQuote:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.own .replyQuote {
+    background: rgba(255, 255, 255, 0.15);
+    border-left-color: rgba(255, 255, 255, 0.6);
+}
+
+.own .replyQuote:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.replyAuthor {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.own .replyAuthor {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.replyText {
+    font-size: 0.75rem;
+    color: var(--secondary);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 250px;
+}
+
+.own .replyText {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* Reply Preview Bar (above input) */
+.replyPreview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: rgba(19, 96, 59, 0.06);
+    border-top: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    animation: slideUp 0.2s ease-out;
+}
+
+.replyPreviewContent {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary);
+    min-width: 0;
+    flex: 1;
+}
+
+.replyPreviewText {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.replyPreviewAuthor {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.replyPreviewMsg {
+    font-size: 0.75rem;
+    color: var(--secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.replyPreviewClose {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: var(--secondary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.replyPreviewClose:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--foreground);
+}
+
+/* Message highlight animation (when scrolling to a replied message) */
+.highlighted {
+    animation: highlightPulse 2s ease-out;
+}
+
+@keyframes highlightPulse {
+    0% {
+        background: rgba(19, 96, 59, 0.2);
+        border-radius: 12px;
+    }
+
+    100% {
+        background: transparent;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
