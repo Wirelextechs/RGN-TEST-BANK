@@ -44,8 +44,7 @@ IMPORTANT RULES:
 - Return ONLY the raw JSON array, no markdown, no code blocks, no other text
 - If there are sub-questions or multi-part questions, treat each part as a separate question`;
 
-        // Send the file directly to Gemini (it can read PDFs, images, docs natively)
-        const result = await model.generateContent([
+        const contentParts = [
             prompt,
             {
                 inlineData: {
@@ -53,7 +52,42 @@ IMPORTANT RULES:
                     mimeType: mimeType
                 }
             }
-        ]);
+        ];
+
+        // Retry logic for rate limits
+        let result;
+        let lastError;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                result = await model.generateContent(contentParts);
+                break; // Success — exit retry loop
+            } catch (apiError: any) {
+                lastError = apiError;
+                const errorMsg = apiError.message || '';
+
+                // Check if it's a rate limit error
+                if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('Too Many Requests')) {
+                    // Extract retry delay if available
+                    const delayMatch = errorMsg.match(/retry in ([\d.]+)s/);
+                    const waitSec = delayMatch ? Math.ceil(parseFloat(delayMatch[1])) : (attempt + 1) * 30;
+
+                    if (attempt < 2) {
+                        console.log(`[Quiz API] Rate limited, retrying in ${waitSec}s (attempt ${attempt + 1}/3)`);
+                        await new Promise(resolve => setTimeout(resolve, waitSec * 1000));
+                        continue;
+                    }
+                }
+                throw apiError;
+            }
+        }
+
+        if (!result) {
+            const errMsg = lastError?.message || '';
+            if (errMsg.includes('429') || errMsg.includes('quota')) {
+                throw new Error('AI quota exceeded. Please wait a minute and try again, or contact your admin to upgrade the API plan.');
+            }
+            throw lastError || new Error('Failed to get AI response');
+        }
 
         const response = await result.response;
         let jsonText = response.text()
@@ -89,8 +123,15 @@ IMPORTANT RULES:
         return NextResponse.json({ quiz });
     } catch (error: any) {
         console.error("Quiz generation error:", error);
+
+        // Clean up error message for the user
+        let userMessage = error.message || "Failed to process document";
+        if (userMessage.includes('429') || userMessage.includes('quota') || userMessage.includes('Too Many')) {
+            userMessage = 'AI quota exceeded. Please wait a minute and try again.';
+        }
+
         return NextResponse.json(
-            { error: error.message || "Failed to process document" },
+            { error: userMessage },
             { status: 500 }
         );
     }
