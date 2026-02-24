@@ -623,6 +623,17 @@
     .sidebarFooter {
         display: none;
     }
+
+    .mobileNav .navItem {
+        justify-content: center !important;
+        width: auto !important;
+        padding: 0.5rem !important;
+        gap: 0 !important;
+    }
+
+    .mobileNav .navItem span {
+        display: none;
+    }
 }
 
 @media (max-width: 480px) {

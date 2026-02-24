@@ -379,6 +379,22 @@ export default function DashboardPage() {
                 )}
                 <Button
                     variant="ghost"
+                    className={`${styles.navItem} ${activeTab === "lessons" ? styles.active : ""}`}
+                    onClick={() => setActiveTab("lessons")}
+                >
+                    <GraduationCap size={20} />
+                </Button>
+                {isStaff && (
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "schedule" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("schedule")}
+                    >
+                        <Shield size={20} />
+                    </Button>
+                )}
+                <Button
+                    variant="ghost"
                     className={`${styles.navItem} ${activeTab === "settings" ? styles.active : ""}`}
                     onClick={() => setActiveTab("settings")}
                 >

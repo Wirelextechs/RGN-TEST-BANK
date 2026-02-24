@@ -15,6 +15,23 @@ interface ChatProps {
     isArchive?: boolean;
 }
 
+const healthInsights = [
+    "Drinking enough water is essential for maintaining healthy skin and improving cognitive function.",
+    "Regular handwashing is one of the most effective ways to prevent the spread of infections.",
+    "A balanced diet rich in fruits and vegetables can significantly reduce the risk of chronic diseases.",
+    "Sleeping at least 7-8 hours a night is crucial for physical and mental well-being.",
+    "Physical activity helps strengthen the heart and improves overall circulation.",
+    "Deep breathing exercises can help reduce stress and improve mental clarity.",
+    "Eating slowly helps with digestion and prevents overeating.",
+    "Regular check-ups can help detect health issues early when they are easier to treat.",
+    "Stretching daily can improve flexibility and reduce the risk of injury.",
+    "Maintaining a healthy posture can prevent back and neck pain.",
+    "Laughter has been shown to boost the immune system and reduce stress hormones.",
+    "Limiting sugar intake can lower the risk of heart disease and type 2 diabetes.",
+    "Proper wound care is vital to prevent infections and promote faster healing.",
+    "Staying socially active can help improve mental health and longevity."
+];
+
 export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatProps) => {
     const isStaff = isAdmin || isTA;
     const [messages, setMessages] = useState<Message[]>([]);
@@ -29,6 +46,15 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         activeLesson?.status === 'live' ||
         (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= new Date())
     );
+
+    const getDailyInsight = () => {
+        const dateString = new Date().toISOString().split('T')[0];
+        let hash = 0;
+        for (let i = 0; i < dateString.length; i++) {
+            hash = dateString.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return healthInsights[Math.abs(hash) % healthInsights.length];
+    };
 
     // 1. Manage Lesson Context and Global Subscriptions
     useEffect(() => {
@@ -99,11 +125,9 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             event: 'UPDATE',
             schema: 'public',
             table: 'lessons'
-        }, (payload) => {
-            const updated = payload.new as Lesson;
-            if (!activeLesson || activeLesson.id === updated.id || updated.status === 'live') {
-                fetchLessonContext();
-            }
+        }, () => {
+            // Always refresh context on any lesson update to ensure instant transitions
+            fetchLessonContext();
         }).subscribe();
 
         const settingsChannel = supabase.channel("platform-settings").on("postgres_changes", {
@@ -233,9 +257,13 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                     : (activeLesson?.status === 'scheduled' ? "Scheduled" : "No active lesson")
                             )}
                         </span>
-                        <h4 className={styles.topicName}>
-                            {activeLesson?.topic || "Discussion Board"}
-                        </h4>
+                        {activeLesson && (activeLesson.status === 'live' || activeLesson.status === 'scheduled') ? (
+                            <h4 className={styles.topicName}>{activeLesson.topic}</h4>
+                        ) : (
+                            <div className={styles.insight}>
+                                <span>{getDailyInsight()}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className={styles.headerTools}>

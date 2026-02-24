@@ -119,6 +119,21 @@
     line-height: 1.2;
 }
 
+.insight {
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.insight::before {
+    content: '💡';
+    font-size: 1rem;
+}
+
 .messagesContainer {
     position: relative;
     overflow: hidden;
