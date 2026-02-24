@@ -260,9 +260,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                         {activeLesson && (activeLesson.status === 'live' || activeLesson.status === 'scheduled') ? (
                             <h4 className={styles.topicName}>{activeLesson.topic}</h4>
                         ) : (
-                            <div className={styles.insight}>
-                                <span>{getDailyInsight()}</span>
-                            </div>
+                            <span className={styles.topicName}>Health & Wellness</span>
                         )}
                     </div>
                 </div>
@@ -294,74 +292,90 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                 </div>
             </div>
 
-            <div className={styles.messagesContainer}>
-                <div className={styles.messages} ref={scrollRef} onScroll={handleScroll}>
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
-                            <div className={styles.avatar}>
-                                {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || "?"}
-                                {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
-                                {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
-                            </div>
-                            <div className={styles.contentWrapper}>
-                                <div className={styles.senderHeader}>
-                                    <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
-                                </div>
-                                <div className={styles.msgBubble}>
-                                    <div className={styles.msgContent}>{msg.content}</div>
-                                    <div className={styles.msgMeta}>
-                                        <span className={styles.timestamp}>
-                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+            {(!activeLesson && !isArchive) ? (
+                <div className={styles.idleState}>
+                    <div className={styles.insightCard}>
+                        <div className={styles.insightIcon}>💡</div>
+                        <h3>Did you know?</h3>
+                        <p>{getDailyInsight()}</p>
+                        <div className={styles.insightFooter}>
+                            Daily Health & Nursing Insights
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className={styles.messagesContainer}>
+                        <div className={styles.messages} ref={scrollRef} onScroll={handleScroll}>
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`${styles.message} ${msg.user_id === userProfile.id ? styles.own : ""}`}>
+                                    <div className={styles.avatar}>
+                                        {msg.profiles?.full_name?.substring(0, 1).toUpperCase() || "?"}
+                                        {msg.profiles?.role === 'ta' && <span className={styles.taBadge}>TA</span>}
+                                        {msg.profiles?.role === 'admin' && <span className={styles.adminBadge}>A</span>}
+                                    </div>
+                                    <div className={styles.contentWrapper}>
+                                        <div className={styles.senderHeader}>
+                                            <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
+                                        </div>
+                                        <div className={styles.msgBubble}>
+                                            <div className={styles.msgContent}>{msg.content}</div>
+                                            <div className={styles.msgMeta}>
+                                                <span className={styles.timestamp}>
+                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-                {showJumpBtn && (
-                    <button className={styles.jumpBtn} onClick={scrollToBottom}>
-                        <Hash size={16} /> New Messages
-                    </button>
-                )}
-            </div>
-
-            <form onSubmit={handleSendMessage} className={styles.inputArea}>
-                {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
-                    <div className={styles.lockedArea}>
-                        <span>{isEffectiveLive ? "Chat is locked for this lesson" : "Discussion Board (Scheduled)"}</span>
-                        {isEffectiveLive && (
-                            <Button
-                                variant={userProfile.is_hand_raised ? "secondary" : "primary"}
-                                size="sm"
-                                onClick={toggleRaiseHand}
-                            >
-                                <Hand size={14} />
-                                {userProfile.is_hand_raised ? "Hand Raised" : "Raise Hand"}
-                            </Button>
+                        {showJumpBtn && (
+                            <button className={styles.jumpBtn} onClick={scrollToBottom}>
+                                <Hash size={16} /> New Messages
+                            </button>
                         )}
                     </div>
-                ) : (
-                    <>
-                        <Input
-                            placeholder="Type your message..."
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            className={styles.input}
-                            disabled={selectedDate !== new Date().toISOString().split('T')[0]}
-                        />
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            size="sm"
-                            className={styles.sendBtn}
-                            disabled={selectedDate !== new Date().toISOString().split('T')[0]}
-                        >
-                            <Send size={18} />
-                        </Button>
-                    </>
-                )}
-            </form>
+
+                    <form onSubmit={handleSendMessage} className={styles.inputArea}>
+                        {!isStaff && isChatLocked && !userProfile.is_unlocked ? (
+                            <div className={styles.lockedArea}>
+                                <span>{isEffectiveLive ? "Chat is locked for this lesson" : "Discussion Board (Scheduled)"}</span>
+                                {isEffectiveLive && (
+                                    <Button
+                                        variant={userProfile.is_hand_raised ? "secondary" : "primary"}
+                                        size="sm"
+                                        onClick={toggleRaiseHand}
+                                    >
+                                        <Hand size={14} />
+                                        {userProfile.is_hand_raised ? "Hand Raised" : "Raise Hand"}
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <Input
+                                    placeholder="Type your message..."
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    className={styles.input}
+                                    disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                                />
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    size="sm"
+                                    className={styles.sendBtn}
+                                    disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                                >
+                                    <Send size={18} />
+                                </Button>
+                            </>
+                        )}
+                    </form>
+                </>
+            )}
+
             {selectedDate !== new Date().toISOString().split('T')[0] && (
                 <div className={styles.archiveNotice}>
                     Viewing history for {new Date(selectedDate).toLocaleDateString()}
