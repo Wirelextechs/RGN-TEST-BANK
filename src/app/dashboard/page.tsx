@@ -618,8 +618,8 @@ export default function DashboardPage() {
                                             <div className={styles.studentInfo}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                                     <span className={styles.studentName}>{student.full_name}</span>
-                                                    <span className={`${styles.roleBadge} ${student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
-                                                        {student.role === 'ta' ? 'T.A.' : 'Student'}
+                                                    <span className={`${styles.roleBadge} ${student.role === 'admin' ? styles.adminBadge : student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
+                                                        {student.role === 'admin' ? 'Admin' : student.role === 'ta' ? 'T.A.' : 'Student'}
                                                     </span>
                                                 </div>
                                                 <span className={styles.studentSchool}>{student.school}</span>
@@ -635,7 +635,6 @@ export default function DashboardPage() {
                                                             disabled={updatingUserId === student.id}
                                                             onClick={async () => {
                                                                 setUpdatingUserId(student.id);
-                                                                console.log('Student list unlock/relock clicked for', student.id, 'current:', student.is_unlocked);
                                                                 const { error } = await supabase
                                                                     .from('profiles')
                                                                     .update({ is_unlocked: !student.is_unlocked })
@@ -652,29 +651,61 @@ export default function DashboardPage() {
                                                         >
                                                             {student.is_unlocked ? "Relock" : "Unlock"}
                                                         </Button>
+                                                        {student.role !== 'admin' && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                                disabled={updatingUserId === student.id}
+                                                                onClick={async () => {
+                                                                    setUpdatingUserId(student.id);
+                                                                    const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                    const { error } = await supabase
+                                                                        .from('profiles')
+                                                                        .update({ role: newRole })
+                                                                        .eq('id', student.id);
+
+                                                                    if (error) {
+                                                                        console.error("Promotion error:", error);
+                                                                        alert(`Could not update role: ${error.message}`);
+                                                                    } else {
+                                                                        fetchAllStudents();
+                                                                    }
+                                                                    setUpdatingUserId(null);
+                                                                }}
+                                                            >
+                                                                {student.role === 'student' ? "→ T.A." : "→ Student"}
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                            className={student.role === 'admin' ? styles.demoteBtn : styles.adminPromoteBtn}
                                                             disabled={updatingUserId === student.id}
                                                             onClick={async () => {
+                                                                if (student.role !== 'admin') {
+                                                                    const confirmed = window.confirm(
+                                                                        `⚠️ Make "${student.full_name}" a full Admin?\n\nThis gives them complete control over the platform including:\n• Managing all users\n• Scheduling & ending classes\n• Accessing all admin features\n\nAre you sure?`
+                                                                    );
+                                                                    if (!confirmed) return;
+                                                                }
                                                                 setUpdatingUserId(student.id);
-                                                                const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                const newRole = student.role === 'admin' ? 'student' : 'admin';
                                                                 const { error } = await supabase
                                                                     .from('profiles')
                                                                     .update({ role: newRole })
                                                                     .eq('id', student.id);
 
                                                                 if (error) {
-                                                                    console.error("Promotion error:", error);
-                                                                    alert(`Could not update role. This is likely due to a database constraint. Please check your Supabase SQL Editor.`);
+                                                                    console.error("Admin promotion error:", error);
+                                                                    alert(`Could not update role: ${error.message}`);
                                                                 } else {
                                                                     fetchAllStudents();
                                                                 }
                                                                 setUpdatingUserId(null);
                                                             }}
                                                         >
-                                                            {student.role === 'student' ? "Promote" : "Demote"}
+                                                            {student.role === 'admin' ? "Revoke Admin" : "→ Admin"}
                                                         </Button>
                                                     </div>
                                                 )}

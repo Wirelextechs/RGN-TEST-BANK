@@ -326,6 +326,13 @@
     border: 1px solid #7c3aed33;
 }
 
+.adminBadge {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    font-weight: 800;
+}
+
 .promoteBtn {
     background: var(--primary) !important;
     color: white !important;
@@ -344,6 +351,24 @@
     height: 28px !important;
     border-radius: 6px !important;
     border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+.adminPromoteBtn {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #d97706 !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
+    transition: all 0.2s ease !important;
+}
+
+.adminPromoteBtn:hover {
+    background: #d97706 !important;
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
 }
 
 .promoteBtn:hover {
