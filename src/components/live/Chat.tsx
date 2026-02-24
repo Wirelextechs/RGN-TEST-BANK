@@ -222,7 +222,11 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                     <div className={styles.onlineDot} style={{ background: activeLesson?.status === 'live' ? 'var(--success)' : 'var(--secondary)' }}></div>
                     <div className={styles.topicInfo}>
                         <span className={styles.statusLabel}>
-                            {isArchive ? "Archive" : (activeLesson?.status === 'live' ? "Live Class" : (activeLesson?.status === 'scheduled' ? "Scheduled" : "No active lesson"))}
+                            {isArchive ? "Archive" : (
+                                (activeLesson?.status === 'live' || (activeLesson?.status === 'scheduled' && new Date(activeLesson.scheduled_at) <= new Date()))
+                                    ? "Live Class"
+                                    : (activeLesson?.status === 'scheduled' ? "Scheduled" : "No active lesson")
+                            )}
                         </span>
                         <h4 className={styles.topicName}>
                             {activeLesson?.topic || "Discussion Board"}

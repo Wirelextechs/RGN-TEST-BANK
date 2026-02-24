@@ -22,6 +22,11 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
     useEffect(() => {
         fetchLessons();
 
+        // Refresh status every minute to catch transitions from scheduled to live
+        const timer = setInterval(() => {
+            setLessons(prev => [...prev]); // Trigger re-render to check current time
+        }, 60000);
+
         // Subscribe to lesson changes
         const channel = supabase
             .channel('lesson-updates')
@@ -31,6 +36,7 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
             .subscribe();
 
         return () => {
+            clearInterval(timer);
             supabase.removeChannel(channel);
         };
     }, []);
@@ -139,35 +145,42 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
                     <p className={styles.empty}>No lessons scheduled yet.</p>
                 ) : (
                     <div className={styles.grid}>
-                        {lessons.map((lesson) => (
-                            <Card key={lesson.id} className={`${styles.lessonCard} ${styles[lesson.status]}`}>
-                                <div className={styles.lessonInfo}>
-                                    <h4>{lesson.topic}</h4>
-                                    <div className={styles.meta}>
-                                        <span><Calendar size={14} /> {new Date(lesson.scheduled_at).toLocaleDateString()}</span>
-                                        <span><Clock size={14} /> {new Date(lesson.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    </div>
-                                    <div className={styles.statusBadge}>{lesson.status.toUpperCase()}</div>
-                                </div>
-                                <div className={styles.actions}>
-                                    {lesson.status === 'scheduled' && (
-                                        <Button variant="primary" size="sm" onClick={() => updateStatus(lesson.id, 'live')}>
-                                            <Play size={14} /> Start Now
-                                        </Button>
-                                    )}
-                                    {lesson.status === 'live' && (
-                                        <Button variant="error" size="sm" onClick={() => updateStatus(lesson.id, 'completed')}>
-                                            <StopCircle size={14} /> End Class
-                                        </Button>
-                                    )}
-                                    {lesson.status === 'completed' && (
-                                        <div className={styles.completedInfo}>
-                                            <CheckCircle size={16} color="var(--success)" /> Managed
+                        {lessons.map((lesson) => {
+                            const isPastDue = lesson.status === 'scheduled' && new Date(lesson.scheduled_at) <= new Date();
+                            const isEffectivelyLive = lesson.status === 'live' || isPastDue;
+
+                            return (
+                                <Card key={lesson.id} className={`${styles.lessonCard} ${styles[lesson.status]} ${isPastDue ? styles.live : ''}`}>
+                                    <div className={styles.lessonInfo}>
+                                        <h4>{lesson.topic}</h4>
+                                        <div className={styles.meta}>
+                                            <span><Calendar size={14} /> {new Date(lesson.scheduled_at).toLocaleDateString()}</span>
+                                            <span><Clock size={14} /> {new Date(lesson.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
-                                    )}
-                                </div>
-                            </Card>
-                        ))}
+                                        <div className={styles.statusBadge}>
+                                            {isPastDue ? 'LIVE (AUTO)' : lesson.status.toUpperCase()}
+                                        </div>
+                                    </div>
+                                    <div className={styles.actions}>
+                                        {lesson.status === 'scheduled' && !isPastDue && (
+                                            <Button variant="primary" size="sm" onClick={() => updateStatus(lesson.id, 'live')}>
+                                                <Play size={14} /> Start Now
+                                            </Button>
+                                        )}
+                                        {isEffectivelyLive && (
+                                            <Button variant="error" size="sm" onClick={() => updateStatus(lesson.id, 'completed')}>
+                                                <StopCircle size={14} /> End Class
+                                            </Button>
+                                        )}
+                                        {lesson.status === 'completed' && (
+                                            <div className={styles.completedInfo}>
+                                                <CheckCircle size={16} color="var(--success)" /> Managed
+                                            </div>
+                                        )}
+                                    </div>
+                                </Card>
+                            );
+                        })}
                     </div>
                 )}
             </div>
