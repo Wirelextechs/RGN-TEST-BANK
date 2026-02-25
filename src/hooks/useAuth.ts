@@ -4,8 +4,15 @@ import { useEffect, useState, useRef } from "react";
 import { supabase, Profile } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 
-function generateSessionId() {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+function getOrGenerateSessionId() {
+    if (typeof window === "undefined") return null;
+    const STORAGE_KEY = "rgn_device_session_id";
+    let sid = localStorage.getItem(STORAGE_KEY);
+    if (!sid) {
+        sid = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+        localStorage.setItem(STORAGE_KEY, sid);
+    }
+    return sid;
 }
 
 export function useAuth() {
@@ -13,6 +20,11 @@ export function useAuth() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
     const sessionIdRef = useRef<string | null>(null);
+
+    // Synchronize sessionIdRef with localStorage once on mount
+    useEffect(() => {
+        sessionIdRef.current = getOrGenerateSessionId();
+    }, []);
 
     useEffect(() => {
         const fetchProfile = async (currentUser: User) => {
@@ -43,8 +55,9 @@ export function useAuth() {
         };
 
         const registerDeviceSession = async (userId: string) => {
-            // Generate a unique session ID for this device/tab
-            const sessionId = generateSessionId();
+            const sessionId = getOrGenerateSessionId();
+            if (!sessionId) return;
+
             sessionIdRef.current = sessionId;
 
             // Write it to the profile
@@ -80,10 +93,14 @@ export function useAuth() {
 
                 if (currentUser) {
                     await fetchProfile(currentUser);
-                    // Also register device session on auth change (e.g. login)
                     await registerDeviceSession(currentUser.id);
                 } else {
                     setProfile(null);
+                    // Clear local session ID on sign out to allow fresh start
+                    if (typeof window !== "undefined") {
+                        localStorage.removeItem("rgn_device_session_id");
+                        sessionIdRef.current = null;
+                    }
                 }
             } catch (err) {
                 console.error("Auth state change error:", err);
@@ -104,15 +121,24 @@ export function useAuth() {
                         const updatedProfile = payload.new as Profile;
                         setProfile(updatedProfile);
 
-                        // Single device enforcement: if device_session_id changed and it's not ours, sign out
+                        // Single device enforcement
+                        const currentSessionId = sessionIdRef.current || getOrGenerateSessionId();
+
                         if (
-                            sessionIdRef.current &&
+                            currentSessionId &&
                             updatedProfile.device_session_id &&
-                            updatedProfile.device_session_id !== sessionIdRef.current
+                            updatedProfile.device_session_id !== currentSessionId
                         ) {
-                            console.warn("[Auth] Another device logged in. Signing out...");
-                            supabase.auth.signOut();
-                            alert("You have been logged out because your account was signed in on another device.");
+                            console.warn("[Auth] Another device logged in. Session mismatch:", {
+                                local: currentSessionId,
+                                remote: updatedProfile.device_session_id
+                            });
+
+                            // Prevent accidental logouts if the remote ID is null/empty (shouldn't happen but safe to have)
+                            if (updatedProfile.device_session_id.length > 5) {
+                                supabase.auth.signOut();
+                                alert("You have been logged out because your account was signed in on another device.");
+                            }
                         }
                     }
                 )
@@ -128,6 +154,9 @@ export function useAuth() {
     }, [user?.id]);
 
     const signOut = async () => {
+        if (typeof window !== "undefined") {
+            localStorage.removeItem("rgn_device_session_id");
+        }
         await supabase.auth.signOut();
     };
 
