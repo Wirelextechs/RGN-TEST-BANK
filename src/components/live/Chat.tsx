@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Send, Smile, Hand, Lock, Unlock, Hash, Calendar, X, Reply } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, ChangeEvent } from "react";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { AdminInbox, useUnreadDMCount } from "@/components/live/AdminInbox";
+import { Poll } from "@/components/live/Poll";
+import { DirectChat } from "@/components/live/DirectChat";
+import { Send, ArrowLeft, Image as ImageIcon, Mic, Hash, Lock, Unlock, Reply, X, Camera, Hand, Calendar, Smile, MicOff, BarChart2, Plus } from "lucide-react";
 import styles from "./Chat.module.css";
 import { supabase, Message, Profile, Lesson } from "@/lib/supabase";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 interface ChatProps {
     userProfile: Profile;
@@ -42,6 +46,7 @@ const getDailyInsight = () => {
 };
 
 export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatProps) => {
+    const { isRecording, recordingTime, audioBlob, startRecording, stopRecording, cancelRecording, formatTime, setAudioBlob } = useVoiceRecorder();
     const isStaff = isAdmin || isTA;
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
@@ -49,6 +54,32 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [showJumpBtn, setShowJumpBtn] = useState(false);
+    const [showPollCreator, setShowPollCreator] = useState(false);
+    const [pollQuestion, setPollQuestion] = useState("");
+    const [pollOptions, setPollOptions] = useState(["", ""]);
+    // Handle voice note upload
+    useEffect(() => {
+        if (audioBlob) {
+            handleVoiceUpload(audioBlob);
+            setAudioBlob(null);
+        }
+    }, [audioBlob]);
+
+    const handleVoiceUpload = async (blob: Blob) => {
+        const path = `voice/${Date.now()}.webm`;
+        const { error: uploadError } = await supabase.storage.from("chat-media").upload(path, blob);
+        if (uploadError) return;
+
+        const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+
+        await supabase.from("messages").insert({
+            content: "🎤 Voice Note",
+            user_id: userProfile.id,
+            lesson_id: activeLesson?.id,
+            message_type: "voice",
+            media_url: urlData.publicUrl
+        });
+    };
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const activeLessonRef = useRef<string | null>(null);
@@ -372,23 +403,124 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                             />
                         </div>
                         {isStaff && (
-                            <Button
-                                variant={isChatLocked ? "error" : "outline"}
-                                size="sm"
-                                onClick={async () => {
-                                    const newLockState = !isChatLocked;
-                                    setIsChatLocked(newLockState);
-                                    await supabase.from("platform_settings").update({ value: { is_locked: newLockState } }).eq("key", "chat_lock");
-                                }}
-                                className={styles.lockBtn}
-                            >
-                                {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
-                                <span>{isChatLocked ? "Locked" : "Lock"}</span>
-                            </Button>
+                            <>
+                                <Button
+                                    variant={isChatLocked ? "error" : "outline"}
+                                    size="sm"
+                                    onClick={async () => {
+                                        const newLockState = !isChatLocked;
+                                        setIsChatLocked(newLockState);
+                                        await supabase.from("platform_settings").update({ value: { is_locked: newLockState } }).eq("key", "chat_lock");
+                                    }}
+                                    className={styles.lockBtn}
+                                >
+                                    {isChatLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                    <span>{isChatLocked ? "Locked" : "Lock"}</span>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowPollCreator(true)}
+                                    className={styles.pollBtn}
+                                >
+                                    <BarChart2 size={14} />
+                                    <span>Poll</span>
+                                </Button>
+                            </>
                         )}
                     </div>
                 )}
             </div>
+
+            {/* Poll Creator Modal */}
+            {showPollCreator && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.pollModal}>
+                        <div className={styles.modalHeader}>
+                            <h3>Create New Poll</h3>
+                            <button onClick={() => setShowPollCreator(false)} className={styles.closeBtn}><X size={20} /></button>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <div className={styles.formGroup}>
+                                <label>Question</label>
+                                <Input
+                                    placeholder="What's your question?"
+                                    value={pollQuestion}
+                                    onChange={(e: ChangeEvent<HTMLInputElement>) => setPollQuestion(e.target.value)}
+                                />
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label>Options</label>
+                                {pollOptions.map((opt, i) => (
+                                    <div key={i} className={styles.optionInputRow}>
+                                        <Input
+                                            placeholder={`Option ${i + 1}`}
+                                            value={opt}
+                                            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                                                const newOpts = [...pollOptions];
+                                                newOpts[i] = e.target.value;
+                                                setPollOptions(newOpts);
+                                            }}
+                                        />
+                                        {pollOptions.length > 2 && (
+                                            <button
+                                                onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}
+                                                className={styles.removeOpt}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                {pollOptions.length < 5 && (
+                                    <button
+                                        className={styles.addOptBtn}
+                                        onClick={() => setPollOptions([...pollOptions, ""])}
+                                    >
+                                        <Plus size={14} /> Add Option
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <div className={styles.modalFooter}>
+                            <Button variant="outline" onClick={() => setShowPollCreator(false)}>Cancel</Button>
+                            <Button
+                                variant="primary"
+                                disabled={!pollQuestion.trim() || pollOptions.some(o => !o.trim())}
+                                onClick={async () => {
+                                    const { data: pollData } = await supabase
+                                        .from('polls')
+                                        .insert({
+                                            question: pollQuestion,
+                                            options: pollOptions.filter(o => o.trim()),
+                                            created_by: userProfile.id,
+                                            lesson_id: activeLesson?.id,
+                                            chat_type: 'main'
+                                        })
+                                        .select()
+                                        .single();
+
+                                    if (pollData) {
+                                        await supabase.from('messages').insert({
+                                            content: `📊 Poll: ${pollQuestion}`,
+                                            user_id: userProfile.id,
+                                            lesson_id: activeLesson?.id,
+                                            message_type: 'poll',
+                                            media_url: pollData.id
+                                        });
+                                    }
+                                    setShowPollCreator(false);
+                                    setPollQuestion("");
+                                    setPollOptions(["", ""]);
+                                }}
+                            >
+                                Create Poll
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {(!hasActiveSession && !isArchive) ? (
                 <div className={styles.idleState}>
@@ -446,7 +578,20 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                                     </span>
                                                 </div>
                                             )}
-                                            <div className={styles.msgContent}>{msg.content}</div>
+                                            {msg.message_type === 'image' && msg.media_url && (
+                                                <div className={styles.mediaContainer}>
+                                                    <img src={msg.media_url} alt="Shared image" className={styles.mediaImage} />
+                                                </div>
+                                            )}
+                                            {msg.message_type === 'voice' && msg.media_url && (
+                                                <audio controls src={msg.media_url} className={styles.audioPlayer} />
+                                            )}
+                                            {msg.message_type === 'poll' && msg.media_url && (
+                                                <Poll pollId={msg.media_url} isAdmin={isAdmin} />
+                                            )}
+                                            {(!msg.message_type || msg.message_type === 'text') && (
+                                                <div className={styles.msgContent}>{msg.content}</div>
+                                            )}
                                             <div className={styles.msgMeta}>
                                                 <span className={styles.timestamp}>
                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -506,23 +651,83 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                             </div>
                         ) : (
                             <>
-                                <Input
-                                    id="chat-input"
-                                    placeholder={replyingTo ? "Type your reply..." : "Type your message..."}
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    className={styles.input}
-                                    disabled={selectedDate !== new Date().toISOString().split('T')[0]}
-                                />
-                                <Button
-                                    type="submit"
-                                    variant="primary"
-                                    size="sm"
-                                    className={styles.sendBtn}
-                                    disabled={selectedDate !== new Date().toISOString().split('T')[0]}
-                                >
-                                    <Send size={18} />
-                                </Button>
+                                {isRecording ? (
+                                    <div className={styles.recordingOverlay}>
+                                        <div className={styles.recordingIndicator}>
+                                            <div className={styles.pulse}></div>
+                                            <span>Recording {formatTime(recordingTime)}</span>
+                                        </div>
+                                        <div className={styles.recordingActions}>
+                                            <Button type="button" variant="ghost" size="sm" onClick={cancelRecording}>Cancel</Button>
+                                            <Button type="button" variant="primary" size="sm" onClick={stopRecording}>Send</Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <label className={styles.mediaBtn}>
+                                            <ImageIcon size={18} />
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                hidden
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file) return;
+
+                                                    const ext = file.name.split('.').pop();
+                                                    const path = `chat/${Date.now()}.${ext}`;
+
+                                                    const { error: uploadError } = await supabase.storage
+                                                        .from('chat-media')
+                                                        .upload(path, file);
+
+                                                    if (uploadError) {
+                                                        console.error('Upload error:', uploadError);
+                                                        return;
+                                                    }
+
+                                                    const { data: urlData } = supabase.storage
+                                                        .from('chat-media')
+                                                        .getPublicUrl(path);
+
+                                                    await supabase.from('messages').insert({
+                                                        content: '📷 Image',
+                                                        user_id: userProfile.id,
+                                                        lesson_id: activeLesson?.id,
+                                                        message_type: 'image',
+                                                        media_url: urlData.publicUrl
+                                                    });
+                                                }}
+                                                disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                                            />
+                                        </label>
+                                        <Input
+                                            id="chat-input"
+                                            placeholder={replyingTo ? "Type your reply..." : "Type your message..."}
+                                            value={newMessage}
+                                            onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
+                                            className={styles.input}
+                                            disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                                        />
+                                        <button
+                                            type="button"
+                                            className={styles.voiceBtn}
+                                            onClick={startRecording}
+                                            disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                                        >
+                                            <Mic size={18} />
+                                        </button>
+                                        <Button
+                                            type="submit"
+                                            variant="primary"
+                                            size="sm"
+                                            className={styles.sendBtn}
+                                            disabled={!newMessage.trim() || selectedDate !== new Date().toISOString().split('T')[0]}
+                                        >
+                                            <Send size={18} />
+                                        </Button>
+                                    </>
+                                )}
                             </>
                         )}
                     </form>

@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { sendBulkSMS } from '@/lib/sms';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { message, lessonTitle } = await request.json();
 
         if (!message) {
@@ -27,7 +23,7 @@ export async function POST(request: Request) {
         }
 
         const phoneNumbers = students
-            ?.map(s => s.phone_number)
+            ?.map((s: any) => s.phone_number)
             .filter(Boolean) as string[];
 
         if (phoneNumbers.length === 0) {
