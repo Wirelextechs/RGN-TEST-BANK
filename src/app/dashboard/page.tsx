@@ -6,8 +6,14 @@ import { QuizGenerator } from "@/components/quiz/QuizGenerator";
 import { QuizPlayer } from "@/components/quiz/QuizPlayer";
 import { LessonManager } from "@/components/live/LessonManager";
 import { LessonArchive } from "@/components/live/LessonArchive";
+import { AdminInbox, useUnreadDMCount } from "@/components/live/AdminInbox";
+import { DirectChat } from "@/components/live/DirectChat";
+import { StudyGroupChat } from "@/components/live/StudyGroupChat";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { NURSING_SCHOOLS } from "@/lib/schools";
 import {
     LogOut,
     Users,
@@ -23,7 +29,13 @@ import {
     Shield,
     BellRing,
     Hand,
-    X
+    X,
+    MessageCircle,
+    Download,
+    CreditCard,
+    Crown,
+    UserPlus,
+    Send
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
@@ -42,6 +54,57 @@ export default function DashboardPage() {
     const [raisedHands, setRaisedHands] = useState<Profile[]>([]);
     const [notifications, setNotifications] = useState<Profile[]>([]);
     const prevHandsRef = useRef<Profile[]>([]);
+    const unreadDMCount = useUnreadDMCount();
+
+    // Admin Create Student state
+    const [newStudentName, setNewStudentName] = useState("");
+    const [newStudentEmail, setNewStudentEmail] = useState("");
+    const [newStudentPassword, setNewStudentPassword] = useState("");
+    const [newStudentPhone, setNewStudentPhone] = useState("");
+    const [newStudentSchool, setNewStudentSchool] = useState("");
+    const [creatingStudent, setCreatingStudent] = useState(false);
+    const [createStudentMsg, setCreateStudentMsg] = useState("");
+
+    // Admin find admin IDs for student DM
+    const [adminUsers, setAdminUsers] = useState<Profile[]>([]);
+
+    // SMS Alert state
+    const [smsMessage, setSmsMessage] = useState("");
+    const [sendingSMS, setSendingSMS] = useState(false);
+    const [smsResult, setSmsResult] = useState("");
+
+    // Platform settings
+    const [paywallEnabled, setPaywallEnabled] = useState(false);
+    const [premiumPrice, setPremiumPrice] = useState(50);
+    const [allPayments, setAllPayments] = useState<any[]>([]);
+    const [savingSettings, setSavingSettings] = useState(false);
+
+    // Fetch admin users for student "Chat Admin" tab
+    useEffect(() => {
+        if (!user || !profile) return;
+        if (profile.role === "student") {
+            supabase.from("profiles").select("id, full_name, role").eq("role", "admin").then(({ data }) => {
+                if (data) setAdminUsers(data as Profile[]);
+            });
+        }
+    }, [user, profile?.role]);
+
+    // Fetch platform settings and payments for admin
+    useEffect(() => {
+        if (!user || !profile || profile.role !== "admin") return;
+        const fetchSettings = async () => {
+            const { data: settings } = await supabase.from("platform_settings").select("*");
+            if (settings) {
+                settings.forEach((s: any) => {
+                    if (s.key === "paywall_enabled") setPaywallEnabled(s.value === true || s.value === "true");
+                    if (s.key === "premium_price") setPremiumPrice(Number(s.value) || 50);
+                });
+            }
+            const { data: payments } = await supabase.from("payments").select("*, profiles:user_id(full_name, school)").order("created_at", { ascending: false });
+            if (payments) setAllPayments(payments);
+        };
+        fetchSettings();
+    }, [user, profile?.role]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -301,6 +364,37 @@ export default function DashboardPage() {
                             )}
                         </>
                     )}
+                    {isAdmin && (
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === 'messages' ? styles.active : ''}`}
+                            onClick={() => setActiveTab('messages')}
+                        >
+                            <MessageCircle size={20} />
+                            <span>Messages</span>
+                            {unreadDMCount > 0 && <span className={styles.navBadge}>{unreadDMCount}</span>}
+                        </Button>
+                    )}
+                    {!isStaff && (
+                        <>
+                            <Button
+                                variant="ghost"
+                                className={`${styles.navItem} ${activeTab === 'chat-admin' ? styles.active : ''}`}
+                                onClick={() => setActiveTab('chat-admin')}
+                            >
+                                <MessageCircle size={20} />
+                                <span>Chat Admin</span>
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`${styles.navItem} ${activeTab === 'study-group' ? styles.active : ''}`}
+                                onClick={() => setActiveTab('study-group')}
+                            >
+                                <Users size={20} />
+                                <span>Study Group</span>
+                            </Button>
+                        </>
+                    )}
                     <Button
                         variant="ghost"
                         className={`${styles.navItem} ${activeTab === 'lessons' ? styles.active : ''}`}
@@ -317,6 +411,16 @@ export default function DashboardPage() {
                         >
                             <Shield size={20} />
                             <span>Schedule</span>
+                        </Button>
+                    )}
+                    {isAdmin && (
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === 'payments' ? styles.active : ''}`}
+                            onClick={() => setActiveTab('payments')}
+                        >
+                            <CreditCard size={20} />
+                            <span>Payments</span>
                         </Button>
                     )}
                 </nav>
@@ -391,6 +495,42 @@ export default function DashboardPage() {
                         onClick={() => setActiveTab("schedule")}
                     >
                         <Shield size={20} />
+                    </Button>
+                )}
+                {isAdmin && (
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "messages" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("messages")}
+                    >
+                        <MessageCircle size={20} />
+                    </Button>
+                )}
+                {!isStaff && (
+                    <>
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === "chat-admin" ? styles.active : ""}`}
+                            onClick={() => setActiveTab("chat-admin")}
+                        >
+                            <MessageCircle size={20} />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${styles.navItem} ${activeTab === "study-group" ? styles.active : ""}`}
+                            onClick={() => setActiveTab("study-group")}
+                        >
+                            <Users size={20} />
+                        </Button>
+                    </>
+                )}
+                {isAdmin && (
+                    <Button
+                        variant="ghost"
+                        className={`${styles.navItem} ${activeTab === "payments" ? styles.active : ""}`}
+                        onClick={() => setActiveTab("payments")}
+                    >
+                        <CreditCard size={20} />
                     </Button>
                 )}
                 <Button
@@ -525,6 +665,61 @@ export default function DashboardPage() {
                                             </Button>
                                         </Card>
                                     )}
+
+                                    {/* SMS Alert Card */}
+                                    <Card className={styles.activityCard} title="📱 Send SMS Alert">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            <textarea
+                                                value={smsMessage}
+                                                onChange={e => setSmsMessage(e.target.value)}
+                                                placeholder="Type your SMS message here... (e.g. Class starting in 10 mins!)"
+                                                rows={3}
+                                                style={{
+                                                    width: '100%', padding: '0.75rem', borderRadius: '8px',
+                                                    border: '1px solid var(--border)', background: 'var(--background)',
+                                                    color: 'var(--foreground)', fontSize: '0.85rem', resize: 'vertical',
+                                                    fontFamily: 'inherit'
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                                                    Sends to all students with phone numbers
+                                                </span>
+                                                <Button
+                                                    variant="primary"
+                                                    size="sm"
+                                                    disabled={!smsMessage.trim() || sendingSMS}
+                                                    onClick={async () => {
+                                                        setSendingSMS(true);
+                                                        setSmsResult('');
+                                                        try {
+                                                            const res = await fetch('/api/sms/send', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ message: smsMessage })
+                                                            });
+                                                            const data = await res.json();
+                                                            if (data.success) {
+                                                                setSmsResult(`✅ Sent to ${data.recipientCount} students`);
+                                                                setSmsMessage('');
+                                                            } else {
+                                                                setSmsResult(`❌ ${data.error || data.message}`);
+                                                            }
+                                                        } catch (err: any) {
+                                                            setSmsResult(`❌ ${err.message}`);
+                                                        }
+                                                        setSendingSMS(false);
+                                                    }}
+                                                >
+                                                    <Send size={14} style={{ marginRight: '0.3rem' }} />
+                                                    {sendingSMS ? 'Sending...' : 'Send SMS'}
+                                                </Button>
+                                            </div>
+                                            {smsResult && (
+                                                <p style={{ fontSize: '0.8rem', fontWeight: 600, margin: 0 }}>{smsResult}</p>
+                                            )}
+                                        </div>
+                                    </Card>
                                 </div>
                             ) : (
                                 <div className={styles.studentView}>
@@ -608,65 +803,171 @@ export default function DashboardPage() {
                         )}
 
                         {activeTab === "students" && isAdmin && (
-                            <Card title={`Registered Students (${allStudents.length})`}>
-                                <div className={styles.studentList}>
-                                    {allStudents.map(student => (
-                                        <div key={student.id} className={styles.rankingItem}>
-                                            <div className={styles.avatar}>
-                                                {student.full_name.substring(0, 1)}
-                                            </div>
-                                            <div className={styles.studentInfo}>
-                                                <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                    <span className={styles.studentName}>{student.full_name}</span>
-                                                    <span className={`${styles.roleBadge} ${student.role === 'admin' ? styles.adminBadge : student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
-                                                        {student.role === 'admin' ? 'Admin' : student.role === 'ta' ? 'T.A.' : 'Student'}
-                                                    </span>
-                                                </div>
-                                                <span className={styles.studentSchool}>{student.school}</span>
-                                            </div>
-                                            <div className={styles.studentRole}>
-                                                <span className={styles.points}>{student.points} pts</span>
-                                                {isAdmin && student.id !== profile.id && (
-                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className={student.is_unlocked ? styles.demoteBtn : styles.promoteBtn}
-                                                            disabled={updatingUserId === student.id}
-                                                            onClick={async () => {
-                                                                setUpdatingUserId(student.id);
-                                                                const { error } = await supabase
-                                                                    .from('profiles')
-                                                                    .update({ is_unlocked: !student.is_unlocked })
-                                                                    .eq('id', student.id);
+                            <div>
+                                {/* Create Student + Export Actions */}
+                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() => setCreatingStudent(!creatingStudent)}
+                                    >
+                                        <UserPlus size={16} style={{ marginRight: '0.5rem' }} />
+                                        {creatingStudent ? 'Cancel' : 'Create Student'}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const csv = ['Name,Email,Phone,School,Role,Premium,Points',
+                                                ...allStudents.map(s => `"${s.full_name}","","${s.phone_number || ''}","${s.school || ''}","${s.role}","${s.is_premium ? 'Yes' : 'No'}","${s.points}"`)
+                                            ].join('\n');
+                                            const blob = new Blob([csv], { type: 'text/csv' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url; a.download = 'rgn_students.csv'; a.click();
+                                            URL.revokeObjectURL(url);
+                                        }}
+                                    >
+                                        <Download size={16} style={{ marginRight: '0.5rem' }} />
+                                        Export CSV
+                                    </Button>
+                                </div>
 
-                                                                if (error) {
-                                                                    console.error('Unlock/Relock error:', error);
-                                                                    alert('Unlock/Relock failed: ' + error.message);
-                                                                } else {
-                                                                    fetchAllStudents();
-                                                                }
-                                                                setUpdatingUserId(null);
-                                                            }}
-                                                        >
-                                                            {student.is_unlocked ? "Relock" : "Unlock"}
-                                                        </Button>
-                                                        {student.role !== 'admin' && (
+                                {/* Create Student Form */}
+                                {creatingStudent && (
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <Card title="Create Student Account">
+                                            <form onSubmit={async (e) => {
+                                                e.preventDefault();
+                                                setCreateStudentMsg('');
+                                                try {
+                                                    const res = await fetch('/api/admin/create-student', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            full_name: newStudentName,
+                                                            email: newStudentEmail,
+                                                            password: newStudentPassword,
+                                                            phone_number: newStudentPhone,
+                                                            school: newStudentSchool
+                                                        })
+                                                    });
+                                                    const data = await res.json();
+                                                    if (data.error) throw new Error(data.error);
+                                                    setCreateStudentMsg(`✅ ${data.message}`);
+                                                    setNewStudentName(''); setNewStudentEmail(''); setNewStudentPassword(''); setNewStudentPhone(''); setNewStudentSchool('');
+                                                } catch (err: any) {
+                                                    setCreateStudentMsg(`❌ ${err.message}`);
+                                                }
+                                            }} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                <Input label="Full Name" value={newStudentName} onChange={e => setNewStudentName(e.target.value)} required />
+                                                <Input label="Email" type="email" value={newStudentEmail} onChange={e => setNewStudentEmail(e.target.value)} required />
+                                                <Input label="Password" type="password" value={newStudentPassword} onChange={e => setNewStudentPassword(e.target.value)} required />
+                                                <Input label="Phone Number" type="tel" value={newStudentPhone} onChange={e => setNewStudentPhone(e.target.value)} />
+                                                <SearchableSelect
+                                                    label="School"
+                                                    options={NURSING_SCHOOLS}
+                                                    value={newStudentSchool}
+                                                    onChange={setNewStudentSchool}
+                                                    placeholder="Select school..."
+                                                />
+                                                {createStudentMsg && <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{createStudentMsg}</p>}
+                                                <Button type="submit" variant="primary">Create Account</Button>
+                                            </form>
+                                        </Card>
+                                    </div>
+                                )}
+                                <Card title={`Registered Students (${allStudents.length})`}>
+                                    <div className={styles.studentList}>
+                                        {allStudents.map(student => (
+                                            <div key={student.id} className={styles.rankingItem}>
+                                                <div className={styles.avatar}>
+                                                    {student.full_name.substring(0, 1)}
+                                                </div>
+                                                <div className={styles.studentInfo}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                        <span className={styles.studentName}>{student.full_name}</span>
+                                                        {student.is_premium && <Crown size={14} style={{ color: '#FFD700' }} />}
+                                                        <span className={`${styles.roleBadge} ${student.role === 'admin' ? styles.adminBadge : student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
+                                                            {student.role === 'admin' ? 'Admin' : student.role === 'ta' ? 'T.A.' : 'Student'}
+                                                        </span>
+                                                    </div>
+                                                    <span className={styles.studentSchool}>{student.school}</span>
+                                                </div>
+                                                <div className={styles.studentRole}>
+                                                    <span className={styles.points}>{student.points} pts</span>
+                                                    {isAdmin && student.id !== profile.id && (
+                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                                className={student.is_unlocked ? styles.demoteBtn : styles.promoteBtn}
                                                                 disabled={updatingUserId === student.id}
                                                                 onClick={async () => {
                                                                     setUpdatingUserId(student.id);
-                                                                    const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                    const { error } = await supabase
+                                                                        .from('profiles')
+                                                                        .update({ is_unlocked: !student.is_unlocked })
+                                                                        .eq('id', student.id);
+
+                                                                    if (error) {
+                                                                        console.error('Unlock/Relock error:', error);
+                                                                        alert('Unlock/Relock failed: ' + error.message);
+                                                                    } else {
+                                                                        fetchAllStudents();
+                                                                    }
+                                                                    setUpdatingUserId(null);
+                                                                }}
+                                                            >
+                                                                {student.is_unlocked ? "Relock" : "Unlock"}
+                                                            </Button>
+                                                            {student.role !== 'admin' && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                                    disabled={updatingUserId === student.id}
+                                                                    onClick={async () => {
+                                                                        setUpdatingUserId(student.id);
+                                                                        const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                        const { error } = await supabase
+                                                                            .from('profiles')
+                                                                            .update({ role: newRole })
+                                                                            .eq('id', student.id);
+
+                                                                        if (error) {
+                                                                            console.error("Promotion error:", error);
+                                                                            alert(`Could not update role: ${error.message}`);
+                                                                        } else {
+                                                                            fetchAllStudents();
+                                                                        }
+                                                                        setUpdatingUserId(null);
+                                                                    }}
+                                                                >
+                                                                    {student.role === 'student' ? "→ T.A." : "→ Student"}
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className={student.role === 'admin' ? styles.demoteBtn : styles.adminPromoteBtn}
+                                                                disabled={updatingUserId === student.id}
+                                                                onClick={async () => {
+                                                                    if (student.role !== 'admin') {
+                                                                        const confirmed = window.confirm(
+                                                                            `⚠️ Make "${student.full_name}" a full Admin?\n\nThis gives them complete control over the platform including:\n• Managing all users\n• Scheduling & ending classes\n• Accessing all admin features\n\nAre you sure?`
+                                                                        );
+                                                                        if (!confirmed) return;
+                                                                    }
+                                                                    setUpdatingUserId(student.id);
+                                                                    const newRole = student.role === 'admin' ? 'student' : 'admin';
                                                                     const { error } = await supabase
                                                                         .from('profiles')
                                                                         .update({ role: newRole })
                                                                         .eq('id', student.id);
 
                                                                     if (error) {
-                                                                        console.error("Promotion error:", error);
+                                                                        console.error("Admin promotion error:", error);
                                                                         alert(`Could not update role: ${error.message}`);
                                                                     } else {
                                                                         fetchAllStudents();
@@ -674,49 +975,19 @@ export default function DashboardPage() {
                                                                     setUpdatingUserId(null);
                                                                 }}
                                                             >
-                                                                {student.role === 'student' ? "→ T.A." : "→ Student"}
+                                                                {student.role === 'admin' ? "Revoke Admin" : "→ Admin"}
                                                             </Button>
-                                                        )}
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className={student.role === 'admin' ? styles.demoteBtn : styles.adminPromoteBtn}
-                                                            disabled={updatingUserId === student.id}
-                                                            onClick={async () => {
-                                                                if (student.role !== 'admin') {
-                                                                    const confirmed = window.confirm(
-                                                                        `⚠️ Make "${student.full_name}" a full Admin?\n\nThis gives them complete control over the platform including:\n• Managing all users\n• Scheduling & ending classes\n• Accessing all admin features\n\nAre you sure?`
-                                                                    );
-                                                                    if (!confirmed) return;
-                                                                }
-                                                                setUpdatingUserId(student.id);
-                                                                const newRole = student.role === 'admin' ? 'student' : 'admin';
-                                                                const { error } = await supabase
-                                                                    .from('profiles')
-                                                                    .update({ role: newRole })
-                                                                    .eq('id', student.id);
-
-                                                                if (error) {
-                                                                    console.error("Admin promotion error:", error);
-                                                                    alert(`Could not update role: ${error.message}`);
-                                                                } else {
-                                                                    fetchAllStudents();
-                                                                }
-                                                                setUpdatingUserId(null);
-                                                            }}
-                                                        >
-                                                            {student.role === 'admin' ? "Revoke Admin" : "→ Admin"}
-                                                        </Button>
-                                                    </div>
-                                                )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                    {allStudents.length === 0 && (
-                                        <p className={styles.noData}>No students registered yet.</p>
-                                    )}
-                                </div>
-                            </Card>
+                                        ))}
+                                        {allStudents.length === 0 && (
+                                            <p className={styles.noData}>No students registered yet.</p>
+                                        )}
+                                    </div>
+                                </Card>
+                            </div>
                         )}
 
                         {activeTab === "impact" && isAdmin && (
@@ -820,6 +1091,164 @@ export default function DashboardPage() {
                         {activeTab === 'schedule' && (
                             <div className={styles.scheduleSection}>
                                 <LessonManager userProfile={profile} />
+                            </div>
+                        )}
+
+                        {/* Admin Messages Tab */}
+                        {activeTab === 'messages' && isAdmin && (
+                            <div className={styles.chatSection}>
+                                <AdminInbox />
+                            </div>
+                        )}
+
+                        {/* Student Chat Admin Tab */}
+                        {activeTab === 'chat-admin' && !isStaff && (
+                            <div className={styles.chatSection}>
+                                {adminUsers.length > 0 ? (
+                                    <DirectChat
+                                        otherUserId={adminUsers[0].id}
+                                        otherUserName={adminUsers[0].full_name}
+                                    />
+                                ) : (
+                                    <Card>
+                                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--secondary)' }}>
+                                            <MessageCircle size={40} />
+                                            <h3 style={{ marginTop: '1rem' }}>No Admin Available</h3>
+                                            <p>Please try again later.</p>
+                                        </div>
+                                    </Card>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Student Study Group Tab */}
+                        {activeTab === 'study-group' && !isStaff && (
+                            <div className={styles.chatSection}>
+                                <StudyGroupChat />
+                            </div>
+                        )}
+
+                        {/* Admin Payments Tab */}
+                        {activeTab === 'payments' && isAdmin && (
+                            <div>
+                                <Card title="Payment Control Center">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                        {/* Paywall Toggle */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--background)', borderRadius: '12px' }}>
+                                            <div>
+                                                <h4 style={{ margin: 0 }}>Paywall</h4>
+                                                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--secondary)' }}>Restrict features for non-premium users</p>
+                                            </div>
+                                            <Button
+                                                variant={paywallEnabled ? 'primary' : 'outline'}
+                                                size="sm"
+                                                onClick={async () => {
+                                                    const newVal = !paywallEnabled;
+                                                    setPaywallEnabled(newVal);
+                                                    await supabase.from('platform_settings').update({ value: newVal.toString() }).eq('key', 'paywall_enabled');
+                                                }}
+                                            >
+                                                {paywallEnabled ? 'Enabled' : 'Disabled'}
+                                            </Button>
+                                        </div>
+
+                                        {/* Premium Price */}
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', padding: '1rem', background: 'var(--background)', borderRadius: '12px' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Upgrade Price (GHS)</label>
+                                                <Input
+                                                    type="number"
+                                                    value={premiumPrice}
+                                                    onChange={(e) => setPremiumPrice(Number(e.target.value))}
+                                                />
+                                            </div>
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                disabled={savingSettings}
+                                                onClick={async () => {
+                                                    setSavingSettings(true);
+                                                    await supabase.from('platform_settings').update({ value: premiumPrice.toString() }).eq('key', 'premium_price');
+                                                    setSavingSettings(false);
+                                                }}
+                                            >
+                                                Save
+                                            </Button>
+                                        </div>
+
+                                        {/* Revenue Summary */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                                            <Card>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>GHS {allPayments.filter(p => p.status === 'success').reduce((sum: number, p: any) => sum + Number(p.amount), 0).toFixed(2)}</p>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Total Revenue</span>
+                                                </div>
+                                            </Card>
+                                            <Card>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{allPayments.filter(p => p.status === 'success').length}</p>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Successful Payments</span>
+                                                </div>
+                                            </Card>
+                                            <Card>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{allStudents.filter(s => s.is_premium).length}</p>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Premium Users</span>
+                                                </div>
+                                            </Card>
+                                        </div>
+
+                                        {/* Manual Premium Toggle per Student */}
+                                        <h4>Manage Premium Access</h4>
+                                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                            {allStudents.filter(s => s.role === 'student').map(student => (
+                                                <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                                                    <div>
+                                                        <span style={{ fontWeight: 600 }}>{student.full_name}</span>
+                                                        {student.is_premium && <Crown size={14} style={{ color: '#FFD700', marginLeft: '0.5rem' }} />}
+                                                        <br />
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{student.school}</span>
+                                                    </div>
+                                                    <Button
+                                                        variant={student.is_premium ? 'outline' : 'primary'}
+                                                        size="sm"
+                                                        onClick={async () => {
+                                                            await supabase.from('profiles').update({ is_premium: !student.is_premium }).eq('id', student.id);
+                                                            setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, is_premium: !s.is_premium } : s));
+                                                        }}
+                                                    >
+                                                        {student.is_premium ? 'Revoke' : 'Grant Premium'}
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Payment History */}
+                                        <h4>Payment History</h4>
+                                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                            {allPayments.length === 0 ? (
+                                                <p style={{ color: 'var(--secondary)', textAlign: 'center' }}>No payments yet</p>
+                                            ) : allPayments.map((p: any) => (
+                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                                                    <div>
+                                                        <span style={{ fontWeight: 600 }}>{p.profiles?.full_name || 'Unknown'}</span>
+                                                        <br />
+                                                        <span style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>
+                                                            {new Date(p.created_at).toLocaleDateString()}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <span style={{ fontWeight: 600 }}>GHS {p.amount}</span>
+                                                        <br />
+                                                        <span style={{ color: p.status === 'success' ? 'var(--primary)' : '#e53e3e', fontSize: '0.75rem' }}>
+                                                            {p.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </Card>
                             </div>
                         )}
                     </div>

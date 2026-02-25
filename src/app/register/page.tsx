@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { BookOpen, Mail, Lock, User } from "lucide-react";
+import { BookOpen, Mail, Lock, User, Phone } from "lucide-react";
 import Link from "next/link";
 import styles from "../login/login.module.css";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +18,7 @@ function RegisterForm() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
+    const [phone, setPhone] = useState("");
     const [school, setSchool] = useState("");
     const [customSchool, setCustomSchool] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +40,7 @@ function RegisterForm() {
                 options: {
                     data: {
                         full_name: fullName,
+                        phone_number: phone,
                         school: school === "Other / Not Listed" ? customSchool : school,
                         role: isAdminMode ? "admin" : "student"
                     }
@@ -54,6 +56,7 @@ function RegisterForm() {
                     full_name: fullName,
                     role: isAdminMode ? "admin" : "student",
                     school: school === "Other / Not Listed" ? customSchool : school,
+                    phone_number: phone,
                     is_locked: false,
                     is_hand_raised: false,
                     points: 0
@@ -115,6 +118,15 @@ function RegisterForm() {
                 icon={<Lock size={18} />}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
+            />
+            <Input
+                label="Phone Number"
+                type="tel"
+                placeholder="0XX XXX XXXX"
+                icon={<Phone size={18} />}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 required
             />
 

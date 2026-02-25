@@ -1,0 +1,168 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--card);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #1a5c3e, #13603b);
+    color: white;
+}
+
+.headerInfo h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.memberCount {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.message {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 85%;
+}
+
+.own {
+    align-self: flex-end;
+}
+
+.avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    margin-top: 1.2rem;
+}
+
+.bubbleWrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.senderName {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary);
+    padding-left: 0.5rem;
+}
+
+.bubble {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 4px 16px 16px 16px;
+    padding: 0.5rem 0.75rem;
+}
+
+.own .bubble {
+    background: var(--primary);
+    color: white;
+    border-radius: 16px 4px 16px 16px;
+    border-color: var(--primary);
+}
+
+.text {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.time {
+    display: block;
+    font-size: 0.65rem;
+    opacity: 0.6;
+    margin-top: 0.2rem;
+    text-align: right;
+}
+
+.mediaImage {
+    max-width: 250px;
+    max-height: 200px;
+    border-radius: 8px;
+    margin-bottom: 0.25rem;
+    object-fit: cover;
+}
+
+.inputArea {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+    align-items: center;
+}
+
+.input {
+    flex: 1;
+}
+
+.mediaBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem;
+    border-radius: 50%;
+    color: var(--secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.mediaBtn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--primary);
+}
+
+.sendBtn {
+    aspect-ratio: 1;
+    padding: 0.5rem !important;
+}
+
+.emptyState {
+    text-align: center;
+    color: var(--secondary);
+    padding: 3rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.emptyState h3 {
+    margin: 0;
+    color: var(--foreground);
+}
+
+.emptyState p {
+    margin: 0;
+    font-size: 0.875rem;
+    max-width: 300px;
+}
