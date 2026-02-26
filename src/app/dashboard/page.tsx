@@ -44,7 +44,7 @@ import { supabase, Profile } from "@/lib/supabase";
 import Image from "next/image";
 
 export default function DashboardPage() {
-    const { user, profile, loading, signOut } = useAuth();
+    const { user, profile, loading, onlineCount, signOut } = useAuth();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("live");
     const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
@@ -78,6 +78,16 @@ export default function DashboardPage() {
     const [premiumPrice, setPremiumPrice] = useState(50);
     const [allPayments, setAllPayments] = useState<any[]>([]);
     const [savingSettings, setSavingSettings] = useState(false);
+
+    // Search states
+    const [studentSearch, setStudentSearch] = useState("");
+    const [premiumSearch, setPremiumSearch] = useState("");
+
+    // Student profile edit state
+    const [editMode, setEditMode] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editPhone, setEditPhone] = useState("");
+    const [savingProfile, setSavingProfile] = useState(false);
 
     // Fetch admin users for student "Chat Admin" tab
     useEffect(() => {
@@ -563,7 +573,7 @@ export default function DashboardPage() {
                         {activeTab === "live" && (
                             isStaff ? (
                                 <div className={styles.adminTools}>
-                                    <Card className={styles.videoPlayer}>
+                                    <div className={styles.videoPlayer}>
                                         <div className={styles.videoOverlay}>
                                             <div className={styles.liveBadge}>LIVE</div>
                                             <span>Staff Monitor</span>
@@ -571,7 +581,7 @@ export default function DashboardPage() {
                                         <div className={styles.placeholderIcon}>
                                             <Video size={64} />
                                         </div>
-                                    </Card>
+                                    </div>
                                     <QuizGenerator />
                                     <Card className={styles.activityCard} title="Top 10 Active Students">
                                         <div className={styles.rankingList}>
@@ -723,58 +733,78 @@ export default function DashboardPage() {
                                 </div>
                             ) : (
                                 <div className={styles.studentView}>
-                                    <Card className={styles.videoPlayer}>
-                                        <div className={styles.videoOverlay}>
-                                            <div className={styles.liveBadge}>LIVE</div>
-                                            <span>RGN Live Prep</span>
-                                        </div>
-                                        <div className={styles.placeholderIcon}>
-                                            <Video size={64} />
-                                        </div>
-                                    </Card>
-
-                                    <div className={styles.stats}>
-                                        <Card glass className={styles.statCard}>
-                                            <Users size={24} color="var(--primary)" />
-                                            <div>
-                                                <h4>128</h4>
-                                                <span>Online Students</span>
-                                            </div>
+                                    {(paywallEnabled && !profile.is_premium) ? (
+                                        <Card className={styles.paywallCard}>
+                                            <Crown size={48} color="#FFD700" />
+                                            <h2>Premium Feature</h2>
+                                            <p>Upgrade to Premium to access the Live Classes and Interactive features.</p>
+                                            <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade Now</Button>
                                         </Card>
-                                        <Card glass className={styles.statCard}>
-                                            <Trophy size={24} color="#FFD700" />
-                                            <div>
-                                                <h4>#1 Ranking</h4>
-                                                <span>{topStudents[0]?.full_name || "---"}</span>
+                                    ) : (
+                                        <>
+                                            <div className={styles.videoPlayer}>
+                                                <div className={styles.videoOverlay}>
+                                                    <div className={styles.liveBadge}>LIVE</div>
+                                                    <span>RGN Live Prep</span>
+                                                </div>
+                                                <div className={styles.placeholderIcon}>
+                                                    <Video size={64} />
+                                                </div>
                                             </div>
-                                        </Card>
-                                    </div>
 
-                                    <div style={{ marginTop: '1.5rem' }}>
-                                        <Card title="Global Leaderboard (Top 10)">
-                                            <div className={styles.rankingList}>
-                                                {topStudents.map((student, index) => (
-                                                    <div key={student.id} className={styles.rankingItem}>
-                                                        <div className={styles.rankBadge}>
-                                                            {index === 0 ? <Trophy size={16} color="#FFD700" /> : index + 1}
-                                                        </div>
-                                                        <div className={styles.studentInfo}>
-                                                            <span className={styles.studentName}>{student.full_name}</span>
-                                                            <span className={styles.studentSchool}>{student.school}</span>
-                                                        </div>
-                                                        <span className={styles.points}>{student.points} pts</span>
+                                            <div className={styles.stats}>
+                                                <Card glass className={styles.statCard}>
+                                                    <Users size={24} color="var(--primary)" />
+                                                    <div>
+                                                        <h4>{onlineCount}</h4>
+                                                        <span>Online Now</span>
                                                     </div>
-                                                ))}
+                                                </Card>
+                                                <Card glass className={styles.statCard}>
+                                                    <Trophy size={24} color="#FFD700" />
+                                                    <div>
+                                                        <h4>#1 Ranking</h4>
+                                                        <span>{topStudents[0]?.full_name || "---"}</span>
+                                                    </div>
+                                                </Card>
                                             </div>
-                                        </Card>
-                                    </div>
+
+                                            <div style={{ marginTop: '1.5rem' }}>
+                                                <Card title="Global Leaderboard (Top 10)">
+                                                    <div className={styles.rankingList}>
+                                                        {topStudents.map((student, index) => (
+                                                            <div key={student.id} className={styles.rankingItem}>
+                                                                <div className={styles.rankBadge}>
+                                                                    {index === 0 ? <Trophy size={16} color="#FFD700" /> : index + 1}
+                                                                </div>
+                                                                <div className={styles.studentInfo}>
+                                                                    <span className={styles.studentName}>{student.full_name}</span>
+                                                                    <span className={styles.studentSchool}>{student.school}</span>
+                                                                </div>
+                                                                <span className={styles.points}>{student.points} pts</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </Card>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )
                         )}
 
                         {activeTab === "quizzes" && (
                             <div className={styles.quizSection}>
-                                <QuizPlayer quiz={[]} />
+                                {(!isStaff && paywallEnabled && !profile.is_premium) ? (
+                                    <Card className={styles.paywallCard}>
+                                        <Crown size={48} color="#FFD700" />
+                                        <h2>Premium Quizzes</h2>
+                                        <p>Interactive quizzes are available for Premium students only. Upgrade today to unlock your full potential!</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Get Premium Access</Button>
+                                    </Card>
+                                ) : (
+                                    <QuizPlayer quiz={[]} />
+                                )}
                             </div>
                         )}
 
@@ -784,8 +814,15 @@ export default function DashboardPage() {
                                     <Card glass className={styles.statCard}>
                                         <Users size={24} color="var(--primary)" />
                                         <div>
-                                            <h4>{isAdmin ? allStudents.length : "128"}</h4>
-                                            <span>{isAdmin ? "Total Registered Students" : "Online Students"}</span>
+                                            <h4>{onlineCount}</h4>
+                                            <span>Online Now</span>
+                                        </div>
+                                    </Card>
+                                    <Card glass className={styles.statCard}>
+                                        <Users size={24} color="var(--primary)" />
+                                        <div>
+                                            <h4>{isAdmin ? allStudents.length : allStudents.length || "---"}</h4>
+                                            <span>{isAdmin ? "Total Registered Students" : "Total Students"}</span>
                                         </div>
                                     </Card>
                                     <Card glass className={styles.statCard}>
@@ -805,7 +842,7 @@ export default function DashboardPage() {
                         {activeTab === "students" && isAdmin && (
                             <div>
                                 {/* Create Student + Export Actions */}
-                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                                     <Button
                                         variant="primary"
                                         size="sm"
@@ -831,6 +868,14 @@ export default function DashboardPage() {
                                         <Download size={16} style={{ marginRight: '0.5rem' }} />
                                         Export CSV
                                     </Button>
+                                    <div style={{ flex: 1, minWidth: '200px' }}>
+                                        <Input
+                                            placeholder="Search students by name or email..."
+                                            value={studentSearch}
+                                            onChange={(e) => setStudentSearch(e.target.value)}
+                                            style={{ marginBottom: 0 }}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Create Student Form */}
@@ -879,64 +924,100 @@ export default function DashboardPage() {
                                 )}
                                 <Card title={`Registered Students (${allStudents.length})`}>
                                     <div className={styles.studentList}>
-                                        {allStudents.map(student => (
-                                            <div key={student.id} className={styles.rankingItem}>
-                                                <div className={styles.avatar}>
-                                                    {student.full_name.substring(0, 1)}
-                                                </div>
-                                                <div className={styles.studentInfo}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                        <span className={styles.studentName}>{student.full_name}</span>
-                                                        {student.is_premium && <Crown size={14} style={{ color: '#FFD700' }} />}
-                                                        <span className={`${styles.roleBadge} ${student.role === 'admin' ? styles.adminBadge : student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
-                                                            {student.role === 'admin' ? 'Admin' : student.role === 'ta' ? 'T.A.' : 'Student'}
-                                                        </span>
+                                        {allStudents
+                                            .filter(s =>
+                                                s.full_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+                                                (s.phone_number || "").includes(studentSearch)
+                                            )
+                                            .map(student => (
+                                                <div key={student.id} className={styles.rankingItem}>
+                                                    <div className={styles.avatar}>
+                                                        {student.full_name.substring(0, 1)}
                                                     </div>
-                                                    <span className={styles.studentSchool}>{student.school}</span>
-                                                </div>
-                                                <div className={styles.studentRole}>
-                                                    <span className={styles.points}>{student.points} pts</span>
-                                                    {isAdmin && student.id !== profile.id && (
-                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={student.is_unlocked ? styles.demoteBtn : styles.promoteBtn}
-                                                                disabled={updatingUserId === student.id}
-                                                                onClick={async () => {
-                                                                    setUpdatingUserId(student.id);
-                                                                    const { error } = await supabase
-                                                                        .from('profiles')
-                                                                        .update({ is_unlocked: !student.is_unlocked })
-                                                                        .eq('id', student.id);
-
-                                                                    if (error) {
-                                                                        console.error('Unlock/Relock error:', error);
-                                                                        alert('Unlock/Relock failed: ' + error.message);
-                                                                    } else {
-                                                                        fetchAllStudents();
-                                                                    }
-                                                                    setUpdatingUserId(null);
-                                                                }}
-                                                            >
-                                                                {student.is_unlocked ? "Relock" : "Unlock"}
-                                                            </Button>
-                                                            {student.role !== 'admin' && (
+                                                    <div className={styles.studentInfo}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                            <span className={styles.studentName}>{student.full_name}</span>
+                                                            {student.is_premium && <Crown size={14} style={{ color: '#FFD700' }} />}
+                                                            <span className={`${styles.roleBadge} ${student.role === 'admin' ? styles.adminBadge : student.role === 'ta' ? styles.taBadge : styles.studentBadge}`}>
+                                                                {student.role === 'admin' ? 'Admin' : student.role === 'ta' ? 'T.A.' : 'Student'}
+                                                            </span>
+                                                        </div>
+                                                        <span className={styles.studentSchool}>{student.school}</span>
+                                                    </div>
+                                                    <div className={styles.studentRole}>
+                                                        <span className={styles.points}>{student.points} pts</span>
+                                                        {isAdmin && student.id !== profile.id && (
+                                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                                    className={student.is_unlocked ? styles.demoteBtn : styles.promoteBtn}
                                                                     disabled={updatingUserId === student.id}
                                                                     onClick={async () => {
                                                                         setUpdatingUserId(student.id);
-                                                                        const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                        const { error } = await supabase
+                                                                            .from('profiles')
+                                                                            .update({ is_unlocked: !student.is_unlocked })
+                                                                            .eq('id', student.id);
+
+                                                                        if (error) {
+                                                                            console.error('Unlock/Relock error:', error);
+                                                                            alert('Unlock/Relock failed: ' + error.message);
+                                                                        } else {
+                                                                            fetchAllStudents();
+                                                                        }
+                                                                        setUpdatingUserId(null);
+                                                                    }}
+                                                                >
+                                                                    {student.is_unlocked ? "Relock" : "Unlock"}
+                                                                </Button>
+                                                                {student.role !== 'admin' && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className={student.role === 'student' ? styles.promoteBtn : styles.demoteBtn}
+                                                                        disabled={updatingUserId === student.id}
+                                                                        onClick={async () => {
+                                                                            setUpdatingUserId(student.id);
+                                                                            const newRole = student.role === 'student' ? 'ta' : 'student';
+                                                                            const { error } = await supabase
+                                                                                .from('profiles')
+                                                                                .update({ role: newRole })
+                                                                                .eq('id', student.id);
+
+                                                                            if (error) {
+                                                                                console.error("Promotion error:", error);
+                                                                                alert(`Could not update role: ${error.message}`);
+                                                                            } else {
+                                                                                fetchAllStudents();
+                                                                            }
+                                                                            setUpdatingUserId(null);
+                                                                        }}
+                                                                    >
+                                                                        {student.role === 'student' ? "→ T.A." : "→ Student"}
+                                                                    </Button>
+                                                                )}
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className={student.role === 'admin' ? styles.demoteBtn : styles.adminPromoteBtn}
+                                                                    disabled={updatingUserId === student.id}
+                                                                    onClick={async () => {
+                                                                        if (student.role !== 'admin') {
+                                                                            const confirmed = window.confirm(
+                                                                                `⚠️ Make "${student.full_name}" a full Admin?\n\nThis gives them complete control over the platform including:\n• Managing all users\n• Scheduling & ending classes\n• Accessing all admin features\n\nAre you sure?`
+                                                                            );
+                                                                            if (!confirmed) return;
+                                                                        }
+                                                                        setUpdatingUserId(student.id);
+                                                                        const newRole = student.role === 'admin' ? 'student' : 'admin';
                                                                         const { error } = await supabase
                                                                             .from('profiles')
                                                                             .update({ role: newRole })
                                                                             .eq('id', student.id);
 
                                                                         if (error) {
-                                                                            console.error("Promotion error:", error);
+                                                                            console.error("Admin promotion error:", error);
                                                                             alert(`Could not update role: ${error.message}`);
                                                                         } else {
                                                                             fetchAllStudents();
@@ -944,44 +1025,13 @@ export default function DashboardPage() {
                                                                         setUpdatingUserId(null);
                                                                     }}
                                                                 >
-                                                                    {student.role === 'student' ? "→ T.A." : "→ Student"}
+                                                                    {student.role === 'admin' ? "Revoke Admin" : "→ Admin"}
                                                                 </Button>
-                                                            )}
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={student.role === 'admin' ? styles.demoteBtn : styles.adminPromoteBtn}
-                                                                disabled={updatingUserId === student.id}
-                                                                onClick={async () => {
-                                                                    if (student.role !== 'admin') {
-                                                                        const confirmed = window.confirm(
-                                                                            `⚠️ Make "${student.full_name}" a full Admin?\n\nThis gives them complete control over the platform including:\n• Managing all users\n• Scheduling & ending classes\n• Accessing all admin features\n\nAre you sure?`
-                                                                        );
-                                                                        if (!confirmed) return;
-                                                                    }
-                                                                    setUpdatingUserId(student.id);
-                                                                    const newRole = student.role === 'admin' ? 'student' : 'admin';
-                                                                    const { error } = await supabase
-                                                                        .from('profiles')
-                                                                        .update({ role: newRole })
-                                                                        .eq('id', student.id);
-
-                                                                    if (error) {
-                                                                        console.error("Admin promotion error:", error);
-                                                                        alert(`Could not update role: ${error.message}`);
-                                                                    } else {
-                                                                        fetchAllStudents();
-                                                                    }
-                                                                    setUpdatingUserId(null);
-                                                                }}
-                                                            >
-                                                                {student.role === 'admin' ? "Revoke Admin" : "→ Admin"}
-                                                            </Button>
-                                                        </div>
-                                                    )}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
                                         {allStudents.length === 0 && (
                                             <p className={styles.noData}>No students registered yet.</p>
                                         )}
@@ -1030,7 +1080,31 @@ export default function DashboardPage() {
                                             </div>
                                             <div className={styles.settingsInfo}>
                                                 <label>Full Name</label>
-                                                <p>{profile.full_name}</p>
+                                                {editMode ? (
+                                                    <Input
+                                                        value={editName || profile.full_name}
+                                                        onChange={(e) => setEditName(e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <p>{profile.full_name}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className={styles.settingsItem}>
+                                            <div className={styles.settingsIcon}>
+                                                <CreditCard size={20} />
+                                            </div>
+                                            <div className={styles.settingsInfo}>
+                                                <label>Phone Number</label>
+                                                {editMode ? (
+                                                    <Input
+                                                        value={editPhone || profile.phone_number || ""}
+                                                        onChange={(e) => setEditPhone(e.target.value)}
+                                                        placeholder="Enter phone number"
+                                                    />
+                                                ) : (
+                                                    <p>{profile.phone_number || "Not Added"}</p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className={styles.settingsItem}>
@@ -1051,6 +1125,43 @@ export default function DashboardPage() {
                                                 <p style={{ textTransform: 'capitalize' }}>{profile.role}</p>
                                             </div>
                                         </div>
+                                    </div>
+                                    <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                        {editMode ? (
+                                            <>
+                                                <Button variant="outline" size="sm" onClick={() => setEditMode(false)}>Cancel</Button>
+                                                <Button
+                                                    variant="primary"
+                                                    size="sm"
+                                                    disabled={savingProfile}
+                                                    onClick={async () => {
+                                                        setSavingProfile(true);
+                                                        const { error } = await supabase
+                                                            .from('profiles')
+                                                            .update({
+                                                                full_name: editName || profile.full_name,
+                                                                phone_number: editPhone || profile.phone_number
+                                                            })
+                                                            .eq('id', profile.id);
+
+                                                        if (error) {
+                                                            alert('Failed to update profile: ' + error.message);
+                                                        } else {
+                                                            setEditMode(false);
+                                                        }
+                                                        setSavingProfile(false);
+                                                    }}
+                                                >
+                                                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button variant="outline" size="sm" onClick={() => {
+                                                setEditName(profile.full_name);
+                                                setEditPhone(profile.phone_number || "");
+                                                setEditMode(true);
+                                            }}>Edit Profile</Button>
+                                        )}
                                     </div>
                                 </Card>
 
@@ -1199,28 +1310,41 @@ export default function DashboardPage() {
                                         </div>
 
                                         {/* Manual Premium Toggle per Student */}
-                                        <h4>Manage Premium Access</h4>
-                                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                            {allStudents.filter(s => s.role === 'student').map(student => (
-                                                <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
-                                                    <div>
-                                                        <span style={{ fontWeight: 600 }}>{student.full_name}</span>
-                                                        {student.is_premium && <Crown size={14} style={{ color: '#FFD700', marginLeft: '0.5rem' }} />}
-                                                        <br />
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{student.school}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+                                            <h4 style={{ margin: 0 }}>Manage Premium Access</h4>
+                                            <div style={{ width: '250px' }}>
+                                                <Input
+                                                    placeholder="Search by name..."
+                                                    value={premiumSearch}
+                                                    onChange={(e) => setPremiumSearch(e.target.value)}
+                                                    style={{ marginBottom: 0 }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'var(--background)', borderRadius: '12px', padding: '0 1rem' }}>
+                                            {allStudents
+                                                .filter(s => s.role === 'student')
+                                                .filter(s => s.full_name.toLowerCase().includes(premiumSearch.toLowerCase()))
+                                                .map(student => (
+                                                    <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--border)' }}>
+                                                        <div>
+                                                            <span style={{ fontWeight: 600 }}>{student.full_name}</span>
+                                                            {student.is_premium && <Crown size={14} style={{ color: '#FFD700', marginLeft: '0.5rem' }} />}
+                                                            <br />
+                                                            <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{student.school}</span>
+                                                        </div>
+                                                        <Button
+                                                            variant={student.is_premium ? 'outline' : 'primary'}
+                                                            size="sm"
+                                                            onClick={async () => {
+                                                                await supabase.from('profiles').update({ is_premium: !student.is_premium }).eq('id', student.id);
+                                                                setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, is_premium: !s.is_premium } : s));
+                                                            }}
+                                                        >
+                                                            {student.is_premium ? 'Revoke' : 'Grant Premium'}
+                                                        </Button>
                                                     </div>
-                                                    <Button
-                                                        variant={student.is_premium ? 'outline' : 'primary'}
-                                                        size="sm"
-                                                        onClick={async () => {
-                                                            await supabase.from('profiles').update({ is_premium: !student.is_premium }).eq('id', student.id);
-                                                            setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, is_premium: !s.is_premium } : s));
-                                                        }}
-                                                    >
-                                                        {student.is_premium ? 'Revoke' : 'Grant Premium'}
-                                                    </Button>
-                                                </div>
-                                            ))}
+                                                ))}
                                         </div>
 
                                         {/* Payment History */}

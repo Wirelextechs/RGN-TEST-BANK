@@ -149,7 +149,24 @@
 .actions {
     margin-top: 1.5rem;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.primaryActions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.deleteBtn {
+    opacity: 0.5;
+    transition: all 0.2s;
+}
+
+.deleteBtn:hover {
+    opacity: 1;
+    color: var(--error);
+    background: rgba(220, 38, 38, 0.05);
 }
 
 .completedInfo {

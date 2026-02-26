@@ -38,6 +38,19 @@ export async function POST(req: NextRequest) {
                 is_hand_raised: false,
                 points: 0
             });
+
+            // Auto-create study group for school if it doesn't exist
+            if (school && school !== "Other / Not Listed") {
+                const { data: existingGroup } = await supabaseAdmin
+                    .from("study_groups")
+                    .select("id")
+                    .eq("school_name", school)
+                    .single();
+
+                if (!existingGroup) {
+                    await supabaseAdmin.from("study_groups").insert({ school_name: school });
+                }
+            }
         }
 
         return NextResponse.json({

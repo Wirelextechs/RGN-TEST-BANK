@@ -587,7 +587,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                                 <audio controls src={msg.media_url} className={styles.audioPlayer} />
                                             )}
                                             {msg.message_type === 'poll' && msg.media_url && (
-                                                <Poll pollId={msg.media_url} isAdmin={isAdmin} />
+                                                <Poll pollId={msg.media_url} isAdmin={isStaff} />
                                             )}
                                             {(!msg.message_type || msg.message_type === 'text') && (
                                                 <div className={styles.msgContent}>{msg.content}</div>

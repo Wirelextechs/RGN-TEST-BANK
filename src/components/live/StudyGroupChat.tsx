@@ -17,6 +17,11 @@ export const StudyGroupChat = () => {
     const [memberCount, setMemberCount] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Lightbox & Edit States
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState("");
+
     const schoolName = profile?.school;
 
     // Find or create study group for user's school
@@ -80,14 +85,22 @@ export const StudyGroupChat = () => {
                 { event: "INSERT", schema: "public", table: "study_group_messages", filter: `group_id=eq.${group.id}` },
                 async (payload) => {
                     const msg = payload.new as StudyGroupMessage;
-                    // Fetch profile for the new message
-                    const { data: prof } = await supabase
-                        .from("profiles")
-                        .select("full_name, role")
-                        .eq("id", msg.user_id)
-                        .single();
+                    const { data: prof } = await supabase.from("profiles").select("full_name, role").eq("id", msg.user_id).single();
                     msg.profiles = prof || undefined;
                     setMessages(prev => [...prev, msg]);
+                }
+            )
+            .on("postgres_changes",
+                { event: "UPDATE", schema: "public", table: "study_group_messages", filter: `group_id=eq.${group.id}` },
+                (payload) => {
+                    const updated = payload.new as StudyGroupMessage;
+                    setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
+                }
+            )
+            .on("postgres_changes",
+                { event: "DELETE", schema: "public", table: "study_group_messages", filter: `group_id=eq.${group.id}` },
+                (payload) => {
+                    setMessages(prev => prev.filter(m => m.id !== payload.old.id));
                 }
             )
             .subscribe();
@@ -176,6 +189,9 @@ export const StudyGroupChat = () => {
                 ) : (
                     messages.map((msg) => {
                         const isOwn = msg.user_id === user?.id;
+                        const isStaff = profile?.role === 'admin' || profile?.role === 'ta';
+                        const isEditing = editingMessageId === msg.id;
+
                         return (
                             <div key={msg.id} className={`${styles.message} ${isOwn ? styles.own : ""}`}>
                                 {!isOwn && (
@@ -183,18 +199,70 @@ export const StudyGroupChat = () => {
                                 )}
                                 <div className={styles.bubbleWrap}>
                                     {!isOwn && (
-                                        <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
+                                            {isStaff && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (confirm("Delete this message?")) {
+                                                            await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                        }
+                                                    }}
+                                                    className={styles.deleteBtn}
+                                                >
+                                                    Delete
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
                                     <div className={styles.bubble}>
                                         {msg.message_type === "image" && msg.media_url && (
-                                            <img src={msg.media_url} alt="Shared" className={styles.mediaImage} />
+                                            <div className={styles.imageContainer} onClick={() => setSelectedImage(msg.media_url!)}>
+                                                <img src={msg.media_url} alt="Shared" className={styles.mediaImage} />
+                                                <div className={styles.imageOverlay}>Click to expand</div>
+                                            </div>
                                         )}
                                         {msg.message_type === "text" && (
-                                            <p className={styles.text}>{msg.content}</p>
+                                            isEditing ? (
+                                                <div className={styles.editArea}>
+                                                    <textarea
+                                                        value={editContent}
+                                                        onChange={(e) => setEditContent(e.target.value)}
+                                                        className={styles.editTextarea}
+                                                    />
+                                                    <div className={styles.editActions}>
+                                                        <Button size="sm" variant="ghost" onClick={() => setEditingMessageId(null)}>Cancel</Button>
+                                                        <Button size="sm" variant="primary" onClick={async () => {
+                                                            await supabase.from("study_group_messages").update({ content: editContent }).eq("id", msg.id);
+                                                            setEditingMessageId(null);
+                                                        }}>Save</Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className={styles.text}>{msg.content}</p>
+                                            )
                                         )}
-                                        <span className={styles.time}>
-                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                        </span>
+                                        <div className={styles.msgFooter}>
+                                            <span className={styles.time}>
+                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                                {msg.updated_at && msg.updated_at !== msg.created_at && " (edited)"}
+                                            </span>
+                                            {isOwn && !isEditing && (
+                                                <div className={styles.ownActions}>
+                                                    {msg.message_type === 'text' && (
+                                                        <button onClick={() => {
+                                                            setEditingMessageId(msg.id);
+                                                            setEditContent(msg.content);
+                                                        }}>Edit</button>
+                                                    )}
+                                                    <button onClick={async () => {
+                                                        if (confirm("Delete your message?")) {
+                                                            await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                        }
+                                                    }}>Delete</button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -219,6 +287,15 @@ export const StudyGroupChat = () => {
                     <Send size={18} />
                 </Button>
             </form>
+
+            {selectedImage && (
+                <div className={styles.lightbox} onClick={() => setSelectedImage(null)}>
+                    <div className={styles.lightboxContent}>
+                        <img src={selectedImage} alt="Expanded view" />
+                        <button className={styles.closeLightbox}>Close</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

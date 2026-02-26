@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Calendar, Clock, Plus, Play, StopCircle, CheckCircle } from "lucide-react";
+import { Calendar, Clock, Plus, Play, StopCircle, CheckCircle, Trash2 } from "lucide-react";
 import { supabase, Lesson, Profile } from "@/lib/supabase";
 import styles from "./LessonManager.module.css";
 
@@ -94,6 +94,23 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
         }
     };
 
+    const deleteLesson = async (lessonId: string) => {
+        if (!confirm("Are you sure you want to delete this lesson? This action cannot be undone and will remove all associated messages.")) return;
+
+        try {
+            const { error } = await supabase
+                .from('lessons')
+                .delete()
+                .eq('id', lessonId);
+
+            if (error) throw error;
+            fetchLessons();
+        } catch (err: any) {
+            console.error("Error deleting lesson:", err);
+            alert(`Failed to delete lesson: ${err.message || 'Unknown error'}`);
+        }
+    };
+
     return (
         <div className={styles.container}>
             <Card title="Schedule New Lesson" className={styles.scheduleCard}>
@@ -162,21 +179,26 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
                                         </div>
                                     </div>
                                     <div className={styles.actions}>
-                                        {lesson.status === 'scheduled' && !isPastDue && (
-                                            <Button variant="primary" size="sm" onClick={() => updateStatus(lesson.id, 'live')}>
-                                                <Play size={14} /> Start Now
-                                            </Button>
-                                        )}
-                                        {isEffectivelyLive && (
-                                            <Button variant="error" size="sm" onClick={() => updateStatus(lesson.id, 'completed')}>
-                                                <StopCircle size={14} /> End Class
-                                            </Button>
-                                        )}
-                                        {lesson.status === 'completed' && (
-                                            <div className={styles.completedInfo}>
-                                                <CheckCircle size={16} color="var(--success)" /> Managed
-                                            </div>
-                                        )}
+                                        <div className={styles.primaryActions}>
+                                            {lesson.status === 'scheduled' && !isPastDue && (
+                                                <Button variant="primary" size="sm" onClick={() => updateStatus(lesson.id, 'live')}>
+                                                    <Play size={14} /> Start Now
+                                                </Button>
+                                            )}
+                                            {isEffectivelyLive && (
+                                                <Button variant="error" size="sm" onClick={() => updateStatus(lesson.id, 'completed')}>
+                                                    <StopCircle size={14} /> End Class
+                                                </Button>
+                                            )}
+                                            {lesson.status === 'completed' && (
+                                                <div className={styles.completedInfo}>
+                                                    <CheckCircle size={16} color="var(--success)" /> Managed
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Button variant="ghost" size="sm" onClick={() => deleteLesson(lesson.id)} className={styles.deleteBtn}>
+                                            <Trash2 size={14} />
+                                        </Button>
                                     </div>
                                 </Card>
                             );

@@ -78,6 +78,7 @@ export type StudyGroupMessage = {
     message_type: 'text' | 'image' | 'voice';
     media_url?: string;
     created_at: string;
+    updated_at?: string;
     profiles?: { full_name: string; role: string };
 };
 

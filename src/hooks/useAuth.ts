@@ -19,6 +19,7 @@ export function useAuth() {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [onlineCount, setOnlineCount] = useState(0);
     const sessionIdRef = useRef<string | null>(null);
 
     // Synchronize sessionIdRef with localStorage once on mount
@@ -145,11 +146,49 @@ export function useAuth() {
                 .subscribe();
         };
 
-        if (user) startProfileSubscription(user.id);
+        // Supabase Presence for Online Now tracking
+        let presenceChannel: any = null;
+
+        const startPresence = (userId: string) => {
+            presenceChannel = supabase.channel('online-users', {
+                config: {
+                    presence: {
+                        key: userId,
+                    },
+                },
+            });
+
+            presenceChannel
+                .on('presence', { event: 'sync' }, () => {
+                    const state = presenceChannel.presenceState();
+                    // Count unique users across all tabs/sessions
+                    setOnlineCount(Object.keys(state).length);
+                })
+                .on('presence', { event: 'join', key: userId }, ({ newPresences }: any) => {
+                    // console.log('Joined:', newPresences);
+                })
+                .on('presence', { event: 'leave', key: userId }, ({ leftPresences }: any) => {
+                    // console.log('Left:', leftPresences);
+                })
+                .subscribe(async (status: string) => {
+                    if (status === 'SUBSCRIBED') {
+                        await presenceChannel.track({
+                            user_id: userId,
+                            online_at: new Date().toISOString(),
+                        });
+                    }
+                });
+        };
+
+        if (user) {
+            startProfileSubscription(user.id);
+            startPresence(user.id);
+        }
 
         return () => {
             authSubscription.unsubscribe();
             if (profileSubscription) supabase.removeChannel(profileSubscription);
+            if (presenceChannel) supabase.removeChannel(presenceChannel);
         };
     }, [user?.id]);
 
@@ -160,5 +199,5 @@ export function useAuth() {
         await supabase.auth.signOut();
     };
 
-    return { user, profile, loading, signOut };
+    return { user, profile, loading, onlineCount, signOut };
 }

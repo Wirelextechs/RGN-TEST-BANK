@@ -65,7 +65,9 @@ export const Poll = ({ pollId, isAdmin }: PollProps) => {
 
     const closePoll = async () => {
         if (!isAdmin) return;
-        await supabase.from("polls").update({ is_closed: true }).eq("id", pollId);
+        if (confirm("Close this poll? No more votes will be accepted.")) {
+            await supabase.from("polls").update({ is_closed: true }).eq("id", pollId);
+        }
     };
 
     if (loading || !poll) return <div className={styles.loading}>Loading poll...</div>;

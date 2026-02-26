@@ -105,14 +105,6 @@
     text-align: right;
 }
 
-.mediaImage {
-    max-width: 250px;
-    max-height: 200px;
-    border-radius: 8px;
-    margin-bottom: 0.25rem;
-    object-fit: cover;
-}
-
 .inputArea {
     display: flex;
     gap: 0.5rem;
@@ -165,4 +157,140 @@
     margin: 0;
     font-size: 0.875rem;
     max-width: 300px;
+}
+
+/* Lightbox & Edit UI */
+.imageContainer {
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    border-radius: 8px;
+    margin-bottom: 0.25rem;
+}
+
+.imageOverlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 0.65rem;
+    padding: 0.25rem;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.imageContainer:hover .imageOverlay {
+    opacity: 1;
+}
+
+.mediaImage {
+    max-width: 250px;
+    max-height: 200px;
+    border-radius: 8px;
+    display: block;
+    object-fit: cover;
+}
+
+.msgFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.ownActions,
+.deleteBtn {
+    display: flex;
+    gap: 0.4rem;
+    opacity: 0.6;
+}
+
+.ownActions button,
+.deleteBtn {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 0.65rem;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.ownActions button:hover,
+.deleteBtn:hover {
+    opacity: 1;
+}
+
+.deleteBtn {
+    color: #ff4d4d;
+    padding: 0 0.5rem;
+}
+
+.editArea {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 200px;
+}
+
+.editTextarea {
+    width: 100%;
+    min-height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: inherit;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.editActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+}
+
+.lightboxContent {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+}
+
+.lightboxContent img {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.closeLightbox {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 500;
 }
