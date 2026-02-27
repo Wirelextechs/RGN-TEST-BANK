@@ -5,6 +5,7 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { AdminInbox, useUnreadDMCount } from "@/components/live/AdminInbox";
 import { Poll } from "@/components/live/Poll";
 import { DirectChat } from "@/components/live/DirectChat";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { Send, ArrowLeft, Image as ImageIcon, Mic, Hash, Lock, Unlock, Reply, X, Camera, Hand, Calendar, Smile, MicOff, BarChart2, Plus } from "lucide-react";
 import styles from "./Chat.module.css";
 import { supabase, Message, Profile, Lesson } from "@/lib/supabase";
@@ -57,6 +58,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     const [showPollCreator, setShowPollCreator] = useState(false);
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     // Handle voice note upload
     useEffect(() => {
         if (audioBlob) {
@@ -579,8 +581,8 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                                 </div>
                                             )}
                                             {msg.message_type === 'image' && msg.media_url && (
-                                                <div className={styles.mediaContainer}>
-                                                    <img src={msg.media_url} alt="Shared image" className={styles.mediaImage} />
+                                                <div className={styles.mediaContainer} onClick={() => setLightboxImage(msg.media_url!)}>
+                                                    <img src={msg.media_url} alt="Shared image" className={styles.mediaImage} style={{ cursor: 'pointer' }} />
                                                 </div>
                                             )}
                                             {msg.message_type === 'voice' && msg.media_url && (
@@ -738,6 +740,13 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                 <div className={styles.archiveNotice}>
                     Viewing history for {new Date(selectedDate).toLocaleDateString()}
                 </div>
+            )}
+
+            {lightboxImage && (
+                <ImageLightbox
+                    src={lightboxImage}
+                    onClose={() => setLightboxImage(null)}
+                />
             )}
         </div>
     );

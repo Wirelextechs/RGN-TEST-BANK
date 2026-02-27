@@ -22,7 +22,7 @@ export const Poll = ({ pollId, isAdmin }: PollProps) => {
         const fetchPollData = async () => {
             const { data: pollData } = await supabase
                 .from("polls")
-                .select("*, votes:poll_votes(*)")
+                .select("*, votes:poll_votes(*, profiles(full_name))")
                 .eq("id", pollId)
                 .single();
 
@@ -83,28 +83,40 @@ export const Poll = ({ pollId, isAdmin }: PollProps) => {
 
             <div className={styles.options}>
                 {poll.options.map((option, idx) => {
-                    const optionVotes = poll.votes?.filter((v: PollVote) => v.option_index === idx).length || 0;
-                    const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+                    const optionVotes = poll.votes?.filter((v: any) => v.option_index === idx) || [];
+                    const voteCount = optionVotes.length;
+                    const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
                     const isSelected = userVote === idx;
 
+                    const voterNames = optionVotes
+                        .map((v: any) => v.profiles?.full_name)
+                        .filter(Boolean)
+                        .join(", ");
+
                     return (
-                        <button
-                            key={idx}
-                            className={`${styles.option} ${isSelected ? styles.selected : ""} ${poll.is_closed ? styles.disabled : ""}`}
-                            onClick={() => handleVote(idx)}
-                            disabled={poll.is_closed || userVote !== null}
-                        >
-                            <div className={styles.optionContent}>
-                                <div className={styles.optionText}>
-                                    {option}
-                                    {isSelected && <Check size={14} className={styles.check} />}
+                        <div key={idx} className={styles.optionWrapper}>
+                            <button
+                                className={`${styles.option} ${isSelected ? styles.selected : ""} ${poll.is_closed ? styles.disabled : ""}`}
+                                onClick={() => handleVote(idx)}
+                                disabled={poll.is_closed || userVote !== null}
+                            >
+                                <div className={styles.optionContent}>
+                                    <div className={styles.optionText}>
+                                        {option}
+                                        {isSelected && <Check size={14} className={styles.check} />}
+                                    </div>
+                                    <span className={styles.percentage}>{percentage}%</span>
                                 </div>
-                                <span className={styles.percentage}>{percentage}%</span>
-                            </div>
-                            <div className={styles.progressContainer}>
-                                <div className={styles.progressBar} style={{ width: `${percentage}%` }}></div>
-                            </div>
-                        </button>
+                                <div className={styles.progressContainer}>
+                                    <div className={styles.progressBar} style={{ width: `${percentage}%` }}></div>
+                                </div>
+                            </button>
+                            {voterNames && isAdmin && (
+                                <div className={styles.voterList}>
+                                    {voterNames}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </div>

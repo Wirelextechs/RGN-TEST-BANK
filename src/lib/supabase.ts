@@ -10,6 +10,7 @@ export type Profile = {
     role: 'admin' | 'ta' | 'student';
     full_name: string;
     school?: string;
+    course?: string;
     avatar_url?: string;
     is_locked: boolean;
     is_hand_raised: boolean;
@@ -66,7 +67,9 @@ export type DirectMessage = {
 
 export type StudyGroup = {
     id: string;
-    school_name: string;
+    school_name?: string;
+    course_name?: string;
+    group_type: 'school' | 'course';
     created_at: string;
 };
 

@@ -10,6 +10,7 @@ import styles from "../login/login.module.css";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NURSING_SCHOOLS } from "@/lib/schools";
+import { NURSING_COURSES } from "@/lib/courses";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { GraduationCap, ShieldCheck } from "lucide-react";
 import { Suspense } from "react";
@@ -21,6 +22,7 @@ function RegisterForm() {
     const [phone, setPhone] = useState("");
     const [school, setSchool] = useState("");
     const [customSchool, setCustomSchool] = useState("");
+    const [course, setCourse] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
@@ -42,6 +44,7 @@ function RegisterForm() {
                         full_name: fullName,
                         phone_number: phone,
                         school: school === "Other / Not Listed" ? customSchool : school,
+                        course: course,
                         role: isAdminMode ? "admin" : "student"
                     }
                 }
@@ -56,6 +59,7 @@ function RegisterForm() {
                     full_name: fullName,
                     role: isAdminMode ? "admin" : "student",
                     school: school === "Other / Not Listed" ? customSchool : school,
+                    course: course,
                     phone_number: phone,
                     is_locked: false,
                     is_hand_raised: false,
@@ -136,6 +140,15 @@ function RegisterForm() {
                 value={school}
                 onChange={setSchool}
                 placeholder="Select your training college"
+                required
+            />
+
+            <SearchableSelect
+                label="Nursing Course / Category"
+                options={NURSING_COURSES.map(c => ({ name: c }))}
+                value={course}
+                onChange={setCourse}
+                placeholder="Select your nursing course"
                 required
             />
 

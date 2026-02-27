@@ -95,9 +95,27 @@ export const LessonManager = ({ userProfile }: LessonManagerProps) => {
     };
 
     const deleteLesson = async (lessonId: string) => {
-        if (!confirm("Are you sure you want to delete this lesson? This action cannot be undone and will remove all associated messages.")) return;
+        if (!confirm("Are you sure you want to delete this lesson? This action cannot be undone and will remove all associated messages and polls.")) return;
 
         try {
+            // 1. Get all polls for this lesson to delete their votes
+            const { data: lessonPolls } = await supabase
+                .from('polls')
+                .select('id')
+                .eq('lesson_id', lessonId);
+
+            if (lessonPolls && lessonPolls.length > 0) {
+                const pollIds = lessonPolls.map(p => p.id);
+                // 2. Delete poll votes
+                await supabase.from('poll_votes').delete().in('poll_id', pollIds);
+                // 3. Delete polls
+                await supabase.from('polls').delete().eq('lesson_id', lessonId);
+            }
+
+            // 4. Delete messages
+            await supabase.from('messages').delete().eq('lesson_id', lessonId);
+
+            // 5. Delete the lesson itself
             const { error } = await supabase
                 .from('lessons')
                 .delete()

@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { NURSING_SCHOOLS } from "@/lib/schools";
+import { NURSING_COURSES } from "@/lib/courses";
 import {
     LogOut,
     Users,
@@ -87,6 +88,7 @@ export default function DashboardPage() {
     const [editMode, setEditMode] = useState(false);
     const [editName, setEditName] = useState("");
     const [editPhone, setEditPhone] = useState("");
+    const [editCourse, setEditCourse] = useState("");
     const [savingProfile, setSavingProfile] = useState(false);
 
     // Fetch admin users for student "Chat Admin" tab
@@ -870,7 +872,7 @@ export default function DashboardPage() {
                                     </Button>
                                     <div style={{ flex: 1, minWidth: '200px' }}>
                                         <Input
-                                            placeholder="Search students by name or email..."
+                                            placeholder="Search by name, email, or phone..."
                                             value={studentSearch}
                                             onChange={(e) => setStudentSearch(e.target.value)}
                                             style={{ marginBottom: 0 }}
@@ -925,10 +927,13 @@ export default function DashboardPage() {
                                 <Card title={`Registered Students (${allStudents.length})`}>
                                     <div className={styles.studentList}>
                                         {allStudents
-                                            .filter(s =>
-                                                s.full_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                                                (s.phone_number || "").includes(studentSearch)
-                                            )
+                                            .filter(s => {
+                                                const term = studentSearch.toLowerCase();
+                                                const nameMatch = s.full_name?.toLowerCase().includes(term) || false;
+                                                const phoneMatch = s.phone_number?.toLowerCase().includes(term) || false;
+                                                const emailMatch = s.email?.toLowerCase().includes(term) || false;
+                                                return nameMatch || phoneMatch || emailMatch;
+                                            })
                                             .map(student => (
                                                 <div key={student.id} className={styles.rankingItem}>
                                                     <div className={styles.avatar}>
@@ -1118,6 +1123,26 @@ export default function DashboardPage() {
                                         </div>
                                         <div className={styles.settingsItem}>
                                             <div className={styles.settingsIcon}>
+                                                <GraduationCap size={20} />
+                                            </div>
+                                            <div className={styles.settingsInfo}>
+                                                <label>Course</label>
+                                                {editMode ? (
+                                                    <select
+                                                        className={styles.inputSelect}
+                                                        value={editCourse || profile.course || ""}
+                                                        onChange={(e) => setEditCourse(e.target.value)}
+                                                    >
+                                                        <option value="">Select a course</option>
+                                                        {NURSING_COURSES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                    </select>
+                                                ) : (
+                                                    <p>{profile.course || "Not Specified"}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className={styles.settingsItem}>
+                                            <div className={styles.settingsIcon}>
                                                 <Shield size={20} />
                                             </div>
                                             <div className={styles.settingsInfo}>
@@ -1140,7 +1165,8 @@ export default function DashboardPage() {
                                                             .from('profiles')
                                                             .update({
                                                                 full_name: editName || profile.full_name,
-                                                                phone_number: editPhone || profile.phone_number
+                                                                phone_number: editPhone || profile.phone_number,
+                                                                course: editCourse || profile.course
                                                             })
                                                             .eq('id', profile.id);
 
@@ -1191,12 +1217,30 @@ export default function DashboardPage() {
                         )}
                         {activeTab === 'live' && (
                             <div className={styles.chatSection}>
-                                <Chat userProfile={profile} isAdmin={profile.role === 'admin'} isTA={profile.role === 'ta'} />
+                                {(!isStaff && paywallEnabled && !profile.is_premium) ? (
+                                    <Card className={styles.paywallCard}>
+                                        <Crown size={48} color="#FFD700" />
+                                        <h2>Premium Chat</h2>
+                                        <p>Upgrade to Premium to participate in the Live Class Chat.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Get Premium Access</Button>
+                                    </Card>
+                                ) : (
+                                    <Chat userProfile={profile} isAdmin={profile.role === 'admin'} isTA={profile.role === 'ta'} />
+                                )}
                             </div>
                         )}
                         {activeTab === 'lessons' && (
                             <div className={styles.lessonsSection}>
-                                <LessonArchive userProfile={profile} />
+                                {(!isStaff && paywallEnabled && !profile.is_premium) ? (
+                                    <Card className={styles.paywallCard}>
+                                        <Crown size={48} color="#FFD700" />
+                                        <h2>Premium Recordings</h2>
+                                        <p>Past lesson recordings and materials are exclusively available for Premium students.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade Now</Button>
+                                    </Card>
+                                ) : (
+                                    <LessonArchive userProfile={profile} />
+                                )}
                             </div>
                         )}
                         {activeTab === 'schedule' && (
@@ -1215,7 +1259,14 @@ export default function DashboardPage() {
                         {/* Student Chat Admin Tab */}
                         {activeTab === 'chat-admin' && !isStaff && (
                             <div className={styles.chatSection}>
-                                {adminUsers.length > 0 ? (
+                                {(paywallEnabled && !profile.is_premium) ? (
+                                    <Card className={styles.paywallCard}>
+                                        <Crown size={48} color="#FFD700" />
+                                        <h2>Direct Admin Access</h2>
+                                        <p>Direct chat with instructors and admins is a Premium feature.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
+                                    </Card>
+                                ) : adminUsers.length > 0 ? (
                                     <DirectChat
                                         otherUserId={adminUsers[0].id}
                                         otherUserName={adminUsers[0].full_name}
@@ -1235,7 +1286,16 @@ export default function DashboardPage() {
                         {/* Student Study Group Tab */}
                         {activeTab === 'study-group' && !isStaff && (
                             <div className={styles.chatSection}>
-                                <StudyGroupChat />
+                                {(paywallEnabled && !profile.is_premium) ? (
+                                    <Card className={styles.paywallCard}>
+                                        <Crown size={48} color="#FFD700" />
+                                        <h2>Study Groups</h2>
+                                        <p>Collaborate with your classmates in dedicated peer-to-peer study groups. Upgrade to Premium to join.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Join Study Groups</Button>
+                                    </Card>
+                                ) : (
+                                    <StudyGroupChat />
+                                )}
                             </div>
                         )}
 
@@ -1314,7 +1374,7 @@ export default function DashboardPage() {
                                             <h4 style={{ margin: 0 }}>Manage Premium Access</h4>
                                             <div style={{ width: '250px' }}>
                                                 <Input
-                                                    placeholder="Search by name..."
+                                                    placeholder="Search name, email, or phone..."
                                                     value={premiumSearch}
                                                     onChange={(e) => setPremiumSearch(e.target.value)}
                                                     style={{ marginBottom: 0 }}
@@ -1322,29 +1382,39 @@ export default function DashboardPage() {
                                             </div>
                                         </div>
                                         <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'var(--background)', borderRadius: '12px', padding: '0 1rem' }}>
-                                            {allStudents
-                                                .filter(s => s.role === 'student')
-                                                .filter(s => s.full_name.toLowerCase().includes(premiumSearch.toLowerCase()))
-                                                .map(student => (
-                                                    <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--border)' }}>
-                                                        <div>
-                                                            <span style={{ fontWeight: 600 }}>{student.full_name}</span>
-                                                            {student.is_premium && <Crown size={14} style={{ color: '#FFD700', marginLeft: '0.5rem' }} />}
-                                                            <br />
-                                                            <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{student.school}</span>
+                                            {premiumSearch.trim().length === 0 ? (
+                                                <p style={{ color: 'var(--secondary)', textAlign: 'center', padding: '2rem 0' }}>Type a student's name to manage their premium access.</p>
+                                            ) : (
+                                                allStudents
+                                                    .filter(s => s.role === 'student')
+                                                    .filter(s => {
+                                                        const term = premiumSearch.toLowerCase();
+                                                        const nameMatch = s.full_name?.toLowerCase().includes(term) || false;
+                                                        const phoneMatch = s.phone_number?.toLowerCase().includes(term) || false;
+                                                        const emailMatch = s.email?.toLowerCase().includes(term) || false;
+                                                        return nameMatch || phoneMatch || emailMatch;
+                                                    })
+                                                    .map(student => (
+                                                        <div key={student.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--border)' }}>
+                                                            <div>
+                                                                <span style={{ fontWeight: 600 }}>{student.full_name}</span>
+                                                                {student.is_premium && <Crown size={14} style={{ color: '#FFD700', marginLeft: '0.5rem' }} />}
+                                                                <br />
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{student.school}</span>
+                                                            </div>
+                                                            <Button
+                                                                variant={student.is_premium ? 'outline' : 'primary'}
+                                                                size="sm"
+                                                                onClick={async () => {
+                                                                    await supabase.from('profiles').update({ is_premium: !student.is_premium }).eq('id', student.id);
+                                                                    setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, is_premium: !s.is_premium } : s));
+                                                                }}
+                                                            >
+                                                                {student.is_premium ? 'Revoke' : 'Grant Premium'}
+                                                            </Button>
                                                         </div>
-                                                        <Button
-                                                            variant={student.is_premium ? 'outline' : 'primary'}
-                                                            size="sm"
-                                                            onClick={async () => {
-                                                                await supabase.from('profiles').update({ is_premium: !student.is_premium }).eq('id', student.id);
-                                                                setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, is_premium: !s.is_premium } : s));
-                                                            }}
-                                                        >
-                                                            {student.is_premium ? 'Revoke' : 'Grant Premium'}
-                                                        </Button>
-                                                    </div>
-                                                ))}
+                                                    ))
+                                            )}
                                         </div>
 
                                         {/* Payment History */}

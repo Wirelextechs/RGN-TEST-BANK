@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase, DirectMessage } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, ArrowLeft, Image as ImageIcon, Mic } from "lucide-react";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { Send, ArrowLeft, Image as ImageIcon, Mic, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import styles from "./DirectChat.module.css";
@@ -20,6 +21,17 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    const {
+        isRecording,
+        recordingTime,
+        audioBlob,
+        startRecording,
+        stopRecording,
+        cancelRecording,
+        formatTime,
+        setAudioBlob
+    } = useVoiceRecorder();
 
     // Fetch messages between the two users
     useEffect(() => {
@@ -118,6 +130,30 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
         });
     };
 
+    const handleVoiceSend = async () => {
+        if (!audioBlob || !user) return;
+
+        const path = `dm/${user.id}/voice_${Date.now()}.webm`;
+        const { error } = await supabase.storage.from("chat-media").upload(path, audioBlob);
+
+        if (error) {
+            console.error("Failed to upload voice note:", error);
+            return;
+        }
+
+        const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+
+        await supabase.from("direct_messages").insert({
+            sender_id: user.id,
+            receiver_id: otherUserId,
+            content: "🎤 Voice Message",
+            message_type: "voice",
+            media_url: urlData.publicUrl
+        });
+
+        setAudioBlob(null);
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
@@ -167,22 +203,57 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                 )}
             </div>
 
-            <form onSubmit={handleSend} className={styles.inputArea}>
-                <label className={styles.mediaBtn}>
-                    <ImageIcon size={20} />
-                    <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
-                </label>
-                <Input
-                    id="dm-input"
-                    placeholder="Type a message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className={styles.input}
-                />
-                <Button type="submit" variant="primary" className={styles.sendBtn} disabled={!newMessage.trim()}>
-                    <Send size={18} />
-                </Button>
-            </form>
+            <div className={styles.inputContainerWrapper}>
+                {isRecording ? (
+                    <div className={styles.recordingUI}>
+                        <div className={styles.recordingPulse} />
+                        <span className={styles.recordingTime}>{formatTime(recordingTime)}</span>
+                        <div className={styles.recordingActions}>
+                            <button onClick={cancelRecording} className={styles.cancelRecordBtn}>
+                                <Trash2 size={18} />
+                            </button>
+                            <button onClick={stopRecording} className={styles.stopRecordBtn}>
+                                <Square size={18} fill="currentColor" />
+                            </button>
+                        </div>
+                    </div>
+                ) : audioBlob ? (
+                    <div className={styles.preSendUI}>
+                        <audio src={URL.createObjectURL(audioBlob)} controls className={styles.audioPreview} />
+                        <div className={styles.recordingActions}>
+                            <button onClick={cancelRecording} className={styles.cancelRecordBtn}>
+                                <Trash2 size={18} />
+                            </button>
+                            <Button onClick={handleVoiceSend} variant="primary" size="sm" className={styles.sendRecordBtn}>
+                                <Send size={18} />
+                            </Button>
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSend} className={styles.inputArea}>
+                        <label className={styles.mediaBtn}>
+                            <ImageIcon size={20} />
+                            <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
+                        </label>
+                        <Input
+                            id="dm-input"
+                            placeholder="Type a message..."
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            className={styles.input}
+                        />
+                        {newMessage.trim() ? (
+                            <Button type="submit" variant="primary" className={styles.sendBtn} disabled={!newMessage.trim()}>
+                                <Send size={18} />
+                            </Button>
+                        ) : (
+                            <button type="button" onClick={startRecording} className={styles.micBtn}>
+                                <Mic size={20} />
+                            </button>
+                        )}
+                    </form>
+                )}
+            </div>
         </div>
     );
 };
