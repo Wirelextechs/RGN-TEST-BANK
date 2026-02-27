@@ -11,6 +11,7 @@ export type Profile = {
     full_name: string;
     school?: string;
     course?: string;
+    email?: string;
     avatar_url?: string;
     is_locked: boolean;
     is_hand_raised: boolean;
