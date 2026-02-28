@@ -101,9 +101,9 @@ export default function DashboardPage() {
         }
     }, [user, profile?.role]);
 
-    // Fetch platform settings and payments for admin
+    // Fetch platform settings globally
     useEffect(() => {
-        if (!user || !profile || profile.role !== "admin") return;
+        if (!user || !profile) return;
         const fetchSettings = async () => {
             const { data: settings } = await supabase.from("platform_settings").select("*");
             if (settings) {
@@ -112,10 +112,26 @@ export default function DashboardPage() {
                     if (s.key === "premium_price") setPremiumPrice(Number(s.value) || 50);
                 });
             }
-            const { data: payments } = await supabase.from("payments").select("*, profiles:user_id(full_name, school)").order("created_at", { ascending: false });
-            if (payments) setAllPayments(payments);
         };
         fetchSettings();
+
+        // Only fetch payments if admin
+        if (profile.role === "admin") {
+            const fetchPayments = async () => {
+                const { data: payments } = await supabase.from("payments").select("*, profiles:user_id(full_name, school)").order("created_at", { ascending: false });
+                if (payments) setAllPayments(payments);
+            };
+            fetchPayments();
+        }
+
+        // Realtime setting subscription globally
+        const settingsChannel = supabase.channel("platform-settings-dash").on("postgres_changes", {
+            event: "UPDATE", schema: "public", table: "platform_settings", filter: "key=eq.paywall_enabled"
+        }, (payload) => {
+            setPaywallEnabled(payload.new.value === true || payload.new.value === "true");
+        }).subscribe();
+
+        return () => { supabase.removeChannel(settingsChannel); };
     }, [user, profile?.role]);
 
     useEffect(() => {
@@ -1313,7 +1329,15 @@ export default function DashboardPage() {
                                                 onClick={async () => {
                                                     const newVal = !paywallEnabled;
                                                     setPaywallEnabled(newVal);
-                                                    await supabase.from('platform_settings').update({ value: newVal.toString() }).eq('key', 'paywall_enabled');
+                                                    try {
+                                                        await fetch('/api/admin/settings', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ key: 'paywall_enabled', value: newVal.toString() })
+                                                        });
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                    }
                                                 }}
                                             >
                                                 {paywallEnabled ? 'Enabled' : 'Disabled'}
@@ -1336,7 +1360,15 @@ export default function DashboardPage() {
                                                 disabled={savingSettings}
                                                 onClick={async () => {
                                                     setSavingSettings(true);
-                                                    await supabase.from('platform_settings').update({ value: premiumPrice.toString() }).eq('key', 'premium_price');
+                                                    try {
+                                                        await fetch('/api/admin/settings', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ key: 'premium_price', value: premiumPrice.toString() })
+                                                        });
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                    }
                                                     setSavingSettings(false);
                                                 }}
                                             >
