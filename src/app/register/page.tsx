@@ -68,26 +68,17 @@ function RegisterForm() {
                     points: 0
                 });
 
-                // Auto-create study groups if they don't exist
-                if (finalSchool) {
-                    const { data: existingSchoolGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'school').eq('school_name', finalSchool).single();
-                    if (!existingSchoolGroup) {
-                        await supabase.from('study_groups').insert({
-                            school_name: finalSchool,
-                            group_type: 'school',
-                            description: `Study group for students at ${finalSchool}`
+                // Auto-create study groups if they don't exist via unified secure API
+                try {
+                    if ((finalSchool && finalSchool !== "Other / Not Listed") || course) {
+                        await fetch('/api/study-groups/init', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ school: finalSchool, course: course })
                         });
                     }
-                }
-                if (course) {
-                    const { data: existingCourseGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'course').eq('course_name', course).single();
-                    if (!existingCourseGroup) {
-                        await supabase.from('study_groups').insert({
-                            course_name: course,
-                            group_type: 'course',
-                            description: `Study group for students studying ${course}`
-                        });
-                    }
+                } catch (err) {
+                    console.error("Failed to init study groups", err);
                 }
             }
 

@@ -42,42 +42,23 @@ export const StudyGroupChat = () => {
         const initGroups = async () => {
             setLoadingGroups(true);
 
-            // Fetch or create School Group
-            if (schoolName && schoolName !== "Other / Not Listed") {
-                let { data: exSchoolGroup } = await supabase
-                    .from("study_groups")
-                    .select("*")
-                    .eq("school_name", schoolName)
-                    .eq("group_type", "school")
-                    .single();
+            // Fetch or create Study Groups securely from API
+            try {
+                if ((schoolName && schoolName !== "Other / Not Listed") || (courseName && courseName !== "")) {
+                    const res = await fetch('/api/study-groups/init', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ school: schoolName, course: courseName })
+                    });
 
-                if (!exSchoolGroup) {
-                    const { data: nGroup } = await supabase
-                        .from("study_groups")
-                        .insert({ school_name: schoolName, group_type: "school" })
-                        .select().single();
-                    exSchoolGroup = nGroup;
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.schoolGroup) setSchoolGroup(data.schoolGroup);
+                        if (data.courseGroup) setCourseGroup(data.courseGroup);
+                    }
                 }
-                setSchoolGroup(exSchoolGroup);
-            }
-
-            // Fetch or create Course Group
-            if (courseName && courseName !== "") {
-                let { data: exCourseGroup } = await supabase
-                    .from("study_groups")
-                    .select("*")
-                    .eq("course_name", courseName)
-                    .eq("group_type", "course")
-                    .single();
-
-                if (!exCourseGroup) {
-                    const { data: nGroup } = await supabase
-                        .from("study_groups")
-                        .insert({ course_name: courseName, group_type: "course" })
-                        .select().single();
-                    exCourseGroup = nGroup;
-                }
-                setCourseGroup(exCourseGroup);
+            } catch (err) {
+                console.error("Failed to init study groups", err);
             }
 
             setLoadingGroups(false);

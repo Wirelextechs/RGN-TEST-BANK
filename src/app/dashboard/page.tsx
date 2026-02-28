@@ -1158,25 +1158,17 @@ export default function DashboardPage() {
                                                             const finalSchool = editName || profile.school;
                                                             const finalCourse = editCourse || profile.course;
 
-                                                            if (finalSchool && finalSchool !== "Other / Not Listed") {
-                                                                const { data: existingSchoolGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'school').eq('school_name', finalSchool).single();
-                                                                if (!existingSchoolGroup) {
-                                                                    await supabase.from('study_groups').insert({
-                                                                        school_name: finalSchool,
-                                                                        group_type: 'school',
-                                                                        description: `Study group for students at ${finalSchool}`
+                                                            // Auto-create study groups if they don't exist via unified secure API
+                                                            try {
+                                                                if ((finalSchool && finalSchool !== "Other / Not Listed") || finalCourse) {
+                                                                    await fetch('/api/study-groups/init', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ school: finalSchool, course: finalCourse })
                                                                     });
                                                                 }
-                                                            }
-                                                            if (finalCourse) {
-                                                                const { data: existingCourseGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'course').eq('course_name', finalCourse).single();
-                                                                if (!existingCourseGroup) {
-                                                                    await supabase.from('study_groups').insert({
-                                                                        course_name: finalCourse,
-                                                                        group_type: 'course',
-                                                                        description: `Study group for students studying ${finalCourse}`
-                                                                    });
-                                                                }
+                                                            } catch (err) {
+                                                                console.error("Failed to init study groups", err);
                                                             }
                                                             setEditMode(false);
                                                         }

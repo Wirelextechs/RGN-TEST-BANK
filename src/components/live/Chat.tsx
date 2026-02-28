@@ -235,7 +235,23 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
             if (!isArchive) {
                 setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 100);
             }
-        }).subscribe();
+        })
+            .on("postgres_changes", {
+                event: "UPDATE", schema: "public", table: "messages"
+            }, (payload) => {
+                const msg = payload.new as Message;
+                if (activeLesson && msg.lesson_id !== activeLesson.id) return;
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: msg.content } : m));
+            })
+            .on("postgres_changes", {
+                event: "DELETE", schema: "public", table: "messages"
+            }, (payload) => {
+                const id = payload.old?.id;
+                if (id) {
+                    setMessages(prev => prev.filter(m => m.id !== id));
+                }
+            })
+            .subscribe();
 
         return () => { supabase.removeChannel(chatChannel); };
     }, [activeLesson?.id, lessonId, isArchive, selectedDate]);

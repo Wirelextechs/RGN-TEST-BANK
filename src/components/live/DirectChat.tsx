@@ -252,6 +252,7 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                                                 onClick={async () => {
                                                     if (confirm("Are you sure you want to delete this message?")) {
                                                         await supabase.from("direct_messages").delete().eq("id", msg.id);
+                                                        setMessages(prev => prev.filter(m => m.id !== msg.id));
                                                     }
                                                 }}
                                                 style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}
