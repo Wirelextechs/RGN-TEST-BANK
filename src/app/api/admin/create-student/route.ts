@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
                     .single();
 
                 if (!existingGroup) {
-                    await supabaseAdmin.from("study_groups").insert({ school_name: school });
+                    await supabaseAdmin.from("study_groups").insert({ school_name: school, group_type: "school" });
                 }
             }
         }

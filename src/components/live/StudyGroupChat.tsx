@@ -257,16 +257,17 @@ export const StudyGroupChat = () => {
                                         )}
                                         <div className={styles.bubbleWrap}>
                                             {!isOwn && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                                     <span className={styles.senderName}>{msg.profiles?.full_name || "Unknown"}</span>
                                                     {isStaff && (
                                                         <button
+                                                            className={styles.actionBtn}
                                                             onClick={async () => {
                                                                 if (confirm("Delete this message?")) {
                                                                     await supabase.from("study_group_messages").delete().eq("id", msg.id);
                                                                 }
                                                             }}
-                                                            className={styles.deleteBtn}
+                                                            style={{ fontSize: '11px', color: 'var(--secondary)' }}
                                                         >
                                                             Delete
                                                         </button>
@@ -309,18 +310,30 @@ export const StudyGroupChat = () => {
                                                         {msg.updated_at && msg.updated_at !== msg.created_at && " (edited)"}
                                                     </span>
                                                     {isOwn && !isEditing && (
-                                                        <div className={styles.ownActions}>
+                                                        <div className={styles.ownActions} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                                                             {msg.message_type === 'text' && (
-                                                                <button onClick={() => {
-                                                                    setEditingMessageId(msg.id);
-                                                                    setEditContent(msg.content);
-                                                                }}>Edit</button>
+                                                                <button
+                                                                    className={styles.actionBtn}
+                                                                    style={{ fontSize: '11px', color: 'var(--secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                                    onClick={() => {
+                                                                        setEditingMessageId(msg.id);
+                                                                        setEditContent(msg.content);
+                                                                    }}
+                                                                >
+                                                                    Edit
+                                                                </button>
                                                             )}
-                                                            <button onClick={async () => {
-                                                                if (confirm("Delete your message?")) {
-                                                                    await supabase.from("study_group_messages").delete().eq("id", msg.id);
-                                                                }
-                                                            }}>Delete</button>
+                                                            <button
+                                                                className={styles.actionBtn}
+                                                                style={{ fontSize: '11px', color: 'var(--secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                                onClick={async () => {
+                                                                    if (confirm("Delete your message?")) {
+                                                                        await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Delete
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>

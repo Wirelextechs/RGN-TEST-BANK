@@ -598,6 +598,38 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                                 <span className={styles.timestamp}>
                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
+                                                {(msg.user_id === userProfile.id || isStaff) && (
+                                                    <div className={styles.msgActions}>
+                                                        {msg.user_id === userProfile.id && (!msg.message_type || msg.message_type === 'text') && (
+                                                            <button
+                                                                className={styles.msgActionBtn}
+                                                                onClick={() => {
+                                                                    const currContent = msg.content.replace(' (edited)', '');
+                                                                    const newContent = prompt("Edit your message:", currContent);
+                                                                    if (newContent && newContent.trim() !== "" && newContent !== currContent) {
+                                                                        const editedContent = newContent.trim() + " (edited)";
+                                                                        supabase.from("messages").update({ content: editedContent }).eq("id", msg.id).then();
+                                                                        setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: editedContent } : m));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            className={styles.msgActionBtn}
+                                                            style={{ color: 'var(--error)' }}
+                                                            onClick={async () => {
+                                                                if (confirm("Are you sure you want to delete this message?")) {
+                                                                    await supabase.from("messages").delete().eq("id", msg.id);
+                                                                    setMessages(prev => prev.filter(m => m.id !== msg.id));
+                                                                }
+                                                            }}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

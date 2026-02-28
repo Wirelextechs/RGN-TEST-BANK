@@ -61,6 +61,7 @@ export type DirectMessage = {
     message_type: 'text' | 'image' | 'voice';
     media_url?: string;
     is_read: boolean;
+    is_edited?: boolean;
     created_at: string;
     sender_profile?: { full_name: string; role: string };
     receiver_profile?: { full_name: string; role: string };

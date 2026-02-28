@@ -54,17 +54,41 @@ function RegisterForm() {
 
             // Hasten record creation by explicitly inserting the profile
             if (data?.user) {
+                const finalSchool = school === "Other / Not Listed" ? customSchool : school;
+
                 await supabase.from("profiles").upsert({
                     id: data.user.id,
                     full_name: fullName,
                     role: isAdminMode ? "admin" : "student",
-                    school: school === "Other / Not Listed" ? customSchool : school,
+                    school: finalSchool,
                     course: course,
                     phone_number: phone,
                     is_locked: false,
                     is_hand_raised: false,
                     points: 0
                 });
+
+                // Auto-create study groups if they don't exist
+                if (finalSchool) {
+                    const { data: existingSchoolGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'school').eq('school_name', finalSchool).single();
+                    if (!existingSchoolGroup) {
+                        await supabase.from('study_groups').insert({
+                            school_name: finalSchool,
+                            group_type: 'school',
+                            description: `Study group for students at ${finalSchool}`
+                        });
+                    }
+                }
+                if (course) {
+                    const { data: existingCourseGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'course').eq('course_name', course).single();
+                    if (!existingCourseGroup) {
+                        await supabase.from('study_groups').insert({
+                            course_name: course,
+                            group_type: 'course',
+                            description: `Study group for students studying ${course}`
+                        });
+                    }
+                }
             }
 
             // Since email confirmation is disabled, session should be available immediately

@@ -7,6 +7,7 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Send, ArrowLeft, Image as ImageIcon, Mic, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import styles from "./DirectChat.module.css";
 
 interface DirectChatProps {
@@ -20,6 +21,9 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const {
@@ -80,6 +84,20 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                                 .then();
                         }
                     }
+                }
+            )
+            .on("postgres_changes",
+                { event: "UPDATE", schema: "public", table: "direct_messages" },
+                (payload) => {
+                    const msg = payload.new as DirectMessage;
+                    setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
+                }
+            )
+            .on("postgres_changes",
+                { event: "DELETE", schema: "public", table: "direct_messages" },
+                (payload) => {
+                    const id = payload.old.id;
+                    setMessages(prev => prev.filter(m => m.id !== id));
                 }
             )
             .subscribe();
@@ -185,17 +203,63 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                             <div key={msg.id} className={`${styles.message} ${isOwn ? styles.own : ""}`}>
                                 <div className={styles.bubble}>
                                     {msg.message_type === "image" && msg.media_url && (
-                                        <img src={msg.media_url} alt="Shared image" className={styles.mediaImage} />
+                                        <div className={styles.imageContainer} onClick={() => setSelectedImage(msg.media_url!)}>
+                                            <img src={msg.media_url} alt="Shared image" className={styles.mediaImage} style={{ cursor: 'pointer' }} />
+                                        </div>
                                     )}
                                     {msg.message_type === "voice" && msg.media_url && (
                                         <audio controls src={msg.media_url} className={styles.audioPlayer} />
                                     )}
                                     {msg.message_type === "text" && (
-                                        <p className={styles.text}>{msg.content}</p>
+                                        editingMsgId === msg.id ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                                                <Input
+                                                    value={editContent}
+                                                    onChange={e => setEditContent(e.target.value)}
+                                                    autoFocus
+                                                />
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <Button size="sm" variant="outline" onClick={() => setEditingMsgId(null)}>Cancel</Button>
+                                                    <Button size="sm" variant="primary" onClick={async () => {
+                                                        if (!editContent.trim()) return;
+                                                        await supabase.from('direct_messages').update({ content: editContent.trim(), is_edited: true }).eq('id', msg.id);
+                                                        setEditingMsgId(null);
+                                                    }}>Save</Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className={styles.text}>
+                                                {msg.content}
+                                                {msg.is_edited && <span className={styles.editedMark}>(edited)</span>}
+                                            </p>
+                                        )
                                     )}
                                     <span className={styles.time}>
                                         {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                     </span>
+                                    {(isOwn || profile?.role === 'admin' || profile?.role === 'ta') && editingMsgId !== msg.id && (
+                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', opacity: 0.7 }}>
+                                            {isOwn && msg.message_type === 'text' && (
+                                                <button
+                                                    onClick={() => { setEditingMsgId(msg.id); setEditContent(msg.content); }}
+                                                    style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
+                                            <button
+                                                className={styles.deleteBtn}
+                                                onClick={async () => {
+                                                    if (confirm("Are you sure you want to delete this message?")) {
+                                                        await supabase.from("direct_messages").delete().eq("id", msg.id);
+                                                    }
+                                                }}
+                                                style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -254,6 +318,13 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                     </form>
                 )}
             </div>
+
+            {selectedImage && (
+                <ImageLightbox
+                    src={selectedImage}
+                    onClose={() => setSelectedImage(null)}
+                />
+            )}
         </div>
     );
 };

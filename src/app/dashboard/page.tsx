@@ -735,78 +735,60 @@ export default function DashboardPage() {
                                 </div>
                             ) : (
                                 <div className={styles.studentView}>
-                                    {(paywallEnabled && !profile.is_premium) ? (
-                                        <Card className={styles.paywallCard}>
-                                            <Crown size={48} color="#FFD700" />
-                                            <h2>Premium Feature</h2>
-                                            <p>Upgrade to Premium to access the Live Classes and Interactive features.</p>
-                                            <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade Now</Button>
-                                        </Card>
-                                    ) : (
-                                        <>
-                                            <div className={styles.videoPlayer}>
-                                                <div className={styles.videoOverlay}>
-                                                    <div className={styles.liveBadge}>LIVE</div>
-                                                    <span>RGN Live Prep</span>
-                                                </div>
-                                                <div className={styles.placeholderIcon}>
-                                                    <Video size={64} />
-                                                </div>
+                                    <>
+                                        <div className={styles.videoPlayer}>
+                                            <div className={styles.videoOverlay}>
+                                                <div className={styles.liveBadge}>LIVE</div>
+                                                <span>RGN Live Prep</span>
                                             </div>
-
-                                            <div className={styles.stats}>
-                                                <Card glass className={styles.statCard}>
-                                                    <Users size={24} color="var(--primary)" />
-                                                    <div>
-                                                        <h4>{onlineCount}</h4>
-                                                        <span>Online Now</span>
-                                                    </div>
-                                                </Card>
-                                                <Card glass className={styles.statCard}>
-                                                    <Trophy size={24} color="#FFD700" />
-                                                    <div>
-                                                        <h4>#1 Ranking</h4>
-                                                        <span>{topStudents[0]?.full_name || "---"}</span>
-                                                    </div>
-                                                </Card>
+                                            <div className={styles.placeholderIcon}>
+                                                <Video size={64} />
                                             </div>
+                                        </div>
 
-                                            <div style={{ marginTop: '1.5rem' }}>
-                                                <Card title="Global Leaderboard (Top 10)">
-                                                    <div className={styles.rankingList}>
-                                                        {topStudents.map((student, index) => (
-                                                            <div key={student.id} className={styles.rankingItem}>
-                                                                <div className={styles.rankBadge}>
-                                                                    {index === 0 ? <Trophy size={16} color="#FFD700" /> : index + 1}
-                                                                </div>
-                                                                <div className={styles.studentInfo}>
-                                                                    <span className={styles.studentName}>{student.full_name}</span>
-                                                                    <span className={styles.studentSchool}>{student.school}</span>
-                                                                </div>
-                                                                <span className={styles.points}>{student.points} pts</span>
+                                        <div className={styles.stats}>
+                                            <Card glass className={styles.statCard}>
+                                                <Users size={24} color="var(--primary)" />
+                                                <div>
+                                                    <h4>{onlineCount}</h4>
+                                                    <span>Online Now</span>
+                                                </div>
+                                            </Card>
+                                            <Card glass className={styles.statCard}>
+                                                <Trophy size={24} color="#FFD700" />
+                                                <div>
+                                                    <h4>#1 Ranking</h4>
+                                                    <span>{topStudents[0]?.full_name || "---"}</span>
+                                                </div>
+                                            </Card>
+                                        </div>
+
+                                        <div style={{ marginTop: '1.5rem' }}>
+                                            <Card title="Global Leaderboard (Top 10)">
+                                                <div className={styles.rankingList}>
+                                                    {topStudents.map((student, index) => (
+                                                        <div key={student.id} className={styles.rankingItem}>
+                                                            <div className={styles.rankBadge}>
+                                                                {index === 0 ? <Trophy size={16} color="#FFD700" /> : index + 1}
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </Card>
-                                            </div>
-                                        </>
-                                    )}
+                                                            <div className={styles.studentInfo}>
+                                                                <span className={styles.studentName}>{student.full_name}</span>
+                                                                <span className={styles.studentSchool}>{student.school}</span>
+                                                            </div>
+                                                            <span className={styles.points}>{student.points} pts</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </Card>
+                                        </div>
+                                    </>
                                 </div>
                             )
                         )}
 
                         {activeTab === "quizzes" && (
                             <div className={styles.quizSection}>
-                                {(!isStaff && paywallEnabled && !profile.is_premium) ? (
-                                    <Card className={styles.paywallCard}>
-                                        <Crown size={48} color="#FFD700" />
-                                        <h2>Premium Quizzes</h2>
-                                        <p>Interactive quizzes are available for Premium students only. Upgrade today to unlock your full potential!</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Get Premium Access</Button>
-                                    </Card>
-                                ) : (
-                                    <QuizPlayer quiz={[]} />
-                                )}
+                                <QuizPlayer quiz={[]} />
                             </div>
                         )}
 
@@ -1173,6 +1155,29 @@ export default function DashboardPage() {
                                                         if (error) {
                                                             alert('Failed to update profile: ' + error.message);
                                                         } else {
+                                                            const finalSchool = editName || profile.school;
+                                                            const finalCourse = editCourse || profile.course;
+
+                                                            if (finalSchool && finalSchool !== "Other / Not Listed") {
+                                                                const { data: existingSchoolGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'school').eq('school_name', finalSchool).single();
+                                                                if (!existingSchoolGroup) {
+                                                                    await supabase.from('study_groups').insert({
+                                                                        school_name: finalSchool,
+                                                                        group_type: 'school',
+                                                                        description: `Study group for students at ${finalSchool}`
+                                                                    });
+                                                                }
+                                                            }
+                                                            if (finalCourse) {
+                                                                const { data: existingCourseGroup } = await supabase.from('study_groups').select('id').eq('group_type', 'course').eq('course_name', finalCourse).single();
+                                                                if (!existingCourseGroup) {
+                                                                    await supabase.from('study_groups').insert({
+                                                                        course_name: finalCourse,
+                                                                        group_type: 'course',
+                                                                        description: `Study group for students studying ${finalCourse}`
+                                                                    });
+                                                                }
+                                                            }
                                                             setEditMode(false);
                                                         }
                                                         setSavingProfile(false);
@@ -1217,12 +1222,12 @@ export default function DashboardPage() {
                         )}
                         {activeTab === 'live' && (
                             <div className={styles.chatSection}>
-                                {(!isStaff && paywallEnabled && !profile.is_premium) ? (
+                                {(paywallEnabled && !profile.is_premium && profile.role === 'student') ? (
                                     <Card className={styles.paywallCard}>
                                         <Crown size={48} color="#FFD700" />
-                                        <h2>Premium Chat</h2>
-                                        <p>Upgrade to Premium to participate in the Live Class Chat.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Get Premium Access</Button>
+                                        <h2>Live Classroom</h2>
+                                        <p>Access to live interactive classes is a Premium feature.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
                                     </Card>
                                 ) : (
                                     <Chat userProfile={profile} isAdmin={profile.role === 'admin'} isTA={profile.role === 'ta'} />
@@ -1231,12 +1236,12 @@ export default function DashboardPage() {
                         )}
                         {activeTab === 'lessons' && (
                             <div className={styles.lessonsSection}>
-                                {(!isStaff && paywallEnabled && !profile.is_premium) ? (
+                                {(paywallEnabled && !profile.is_premium && profile.role === 'student') ? (
                                     <Card className={styles.paywallCard}>
                                         <Crown size={48} color="#FFD700" />
-                                        <h2>Premium Recordings</h2>
-                                        <p>Past lesson recordings and materials are exclusively available for Premium students.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade Now</Button>
+                                        <h2>Lesson Archive</h2>
+                                        <p>Access to past lessons and materials is a Premium feature.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
                                     </Card>
                                 ) : (
                                     <LessonArchive userProfile={profile} />
@@ -1290,8 +1295,8 @@ export default function DashboardPage() {
                                     <Card className={styles.paywallCard}>
                                         <Crown size={48} color="#FFD700" />
                                         <h2>Study Groups</h2>
-                                        <p>Collaborate with your classmates in dedicated peer-to-peer study groups. Upgrade to Premium to join.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Join Study Groups</Button>
+                                        <p>Collaboration in study groups is a Premium feature.</p>
+                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
                                     </Card>
                                 ) : (
                                     <StudyGroupChat />
@@ -1446,8 +1451,6 @@ export default function DashboardPage() {
                             </div>
                         )}
                     </div>
-
-
                 </div>
             </main>
         </div>
