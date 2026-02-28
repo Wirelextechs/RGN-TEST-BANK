@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase, StudyGroupMessage, StudyGroup } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Users, Image as ImageIcon, GraduationCap, LibraryBig } from "lucide-react";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { Send, Users, Image as ImageIcon, GraduationCap, LibraryBig, Mic, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import styles from "./StudyGroupChat.module.css";
 
@@ -28,6 +29,17 @@ export const StudyGroupChat = () => {
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
+
+    const {
+        isRecording,
+        recordingTime,
+        audioBlob,
+        startRecording,
+        stopRecording,
+        cancelRecording,
+        formatTime,
+        setAudioBlob
+    } = useVoiceRecorder();
 
     const schoolName = profile?.school;
     const courseName = profile?.course;
@@ -174,6 +186,30 @@ export const StudyGroupChat = () => {
         });
     };
 
+    const handleVoiceSend = async () => {
+        if (!audioBlob || !user || !activeGroup) return;
+
+        const path = `study-groups/${activeGroup.id}/voice_${Date.now()}.webm`;
+        const { error } = await supabase.storage.from("chat-media").upload(path, audioBlob);
+
+        if (error) {
+            console.error("Failed to upload voice note:", error);
+            return;
+        }
+
+        const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+
+        await supabase.from("study_group_messages").insert({
+            group_id: activeGroup.id,
+            user_id: user.id,
+            content: "🎤 Voice Message",
+            message_type: "voice",
+            media_url: urlData.publicUrl
+        });
+
+        setAudioBlob(null);
+    };
+
     if (loadingGroups) {
         return (
             <div className={styles.container}>
@@ -268,7 +304,7 @@ export const StudyGroupChat = () => {
                                                 {msg.message_type === "text" && (
                                                     isEditing ? (
                                                         <div className={styles.editArea}>
-                                                            <textarea
+                                                            <Textarea
                                                                 value={editContent}
                                                                 onChange={(e) => setEditContent(e.target.value)}
                                                                 className={styles.editTextarea}
@@ -326,22 +362,63 @@ export const StudyGroupChat = () => {
                         )}
                     </div>
 
-                    <form onSubmit={handleSend} className={styles.inputArea}>
-                        <label className={styles.mediaBtn}>
-                            <ImageIcon size={20} />
-                            <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
-                        </label>
-                        <Input
-                            id="sg-input"
-                            placeholder="Message your study group..."
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            className={styles.input}
-                        />
-                        <Button type="submit" variant="primary" className={styles.sendBtn} disabled={!newMessage.trim()}>
-                            <Send size={18} />
-                        </Button>
-                    </form>
+                    <div className={styles.inputContainerWrapper}>
+                        {isRecording ? (
+                            <div className={styles.recordingUI}>
+                                <div className={styles.recordingPulse} />
+                                <span className={styles.recordingTime}>{formatTime(recordingTime)}</span>
+                                <div className={styles.recordingActions}>
+                                    <button type="button" onClick={cancelRecording} className={styles.cancelRecordBtn}>
+                                        <Trash2 size={18} />
+                                    </button>
+                                    <button type="button" onClick={stopRecording} className={styles.stopRecordBtn}>
+                                        <Square size={18} fill="currentColor" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : audioBlob ? (
+                            <div className={styles.preSendUI}>
+                                <audio src={URL.createObjectURL(audioBlob)} controls className={styles.audioPreview} />
+                                <div className={styles.recordingActions}>
+                                    <button type="button" onClick={cancelRecording} className={styles.cancelRecordBtn}>
+                                        <Trash2 size={18} />
+                                    </button>
+                                    <Button type="button" onClick={handleVoiceSend} variant="primary" size="sm" className={styles.sendRecordBtn}>
+                                        <Send size={18} />
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSend} className={styles.inputArea}>
+                                <label className={styles.mediaBtn}>
+                                    <ImageIcon size={20} />
+                                    <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
+                                </label>
+                                <Textarea
+                                    id="sg-input"
+                                    placeholder="Message your study group..."
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSend(e);
+                                        }
+                                    }}
+                                    className={styles.input}
+                                />
+                                {newMessage.trim() ? (
+                                    <Button type="submit" variant="primary" className={styles.sendBtn} disabled={!newMessage.trim()}>
+                                        <Send size={18} />
+                                    </Button>
+                                ) : (
+                                    <button type="button" onClick={startRecording} className={styles.micBtn}>
+                                        <Mic size={20} />
+                                    </button>
+                                )}
+                            </form>
+                        )}
+                    </div>
                 </>
             )}
 

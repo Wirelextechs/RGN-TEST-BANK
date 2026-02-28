@@ -10,6 +10,7 @@ import { Send, ArrowLeft, Image as ImageIcon, Mic, Hash, Lock, Unlock, Reply, X,
 import styles from "./Chat.module.css";
 import { supabase, Message, Profile, Lesson } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
 import { Input } from "@/components/ui/Input";
 
 interface ChatProps {
@@ -348,7 +349,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
         // If swiped past threshold, trigger reply
         if (diff > 50) {
             setReplyingTo(msg);
-            (document.getElementById('chat-input')?.querySelector('input') as HTMLInputElement)?.focus();
+            (document.getElementById('chat-input') as HTMLTextAreaElement)?.focus();
         }
 
         swipingMsgId.current = null;
@@ -357,7 +358,7 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
     // Double-click/tap to reply (desktop fallback)
     const handleDoubleClick = (msg: Message) => {
         setReplyingTo(msg);
-        (document.getElementById('chat-input')?.querySelector('input') as HTMLInputElement)?.focus();
+        (document.getElementById('chat-input') as HTMLTextAreaElement)?.focus();
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -751,11 +752,17 @@ export const Chat = ({ userProfile, isAdmin, isTA, lessonId, isArchive }: ChatPr
                                                 disabled={selectedDate !== new Date().toISOString().split('T')[0]}
                                             />
                                         </label>
-                                        <Input
+                                        <Textarea
                                             id="chat-input"
                                             placeholder={replyingTo ? "Type your reply..." : "Type your message..."}
                                             value={newMessage}
-                                            onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
+                                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNewMessage(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSendMessage(e);
+                                                }
+                                            }}
                                             className={styles.input}
                                             disabled={selectedDate !== new Date().toISOString().split('T')[0]}
                                         />

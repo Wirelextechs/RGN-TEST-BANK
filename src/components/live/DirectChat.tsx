@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Send, ArrowLeft, Image as ImageIcon, Mic, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import styles from "./DirectChat.module.css";
 
@@ -213,7 +213,7 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                                     {msg.message_type === "text" && (
                                         editingMsgId === msg.id ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
-                                                <Input
+                                                <Textarea
                                                     value={editContent}
                                                     onChange={e => setEditContent(e.target.value)}
                                                     autoFocus
@@ -300,11 +300,17 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                             <ImageIcon size={20} />
                             <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
                         </label>
-                        <Input
+                        <Textarea
                             id="dm-input"
                             placeholder="Type a message..."
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend(e);
+                                }
+                            }}
                             className={styles.input}
                         />
                         {newMessage.trim() ? (
