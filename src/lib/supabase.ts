@@ -62,6 +62,12 @@ export type DirectMessage = {
     media_url?: string;
     is_read: boolean;
     is_edited?: boolean;
+    reply_to?: string;
+    reply_message?: {
+        id: string;
+        content: string;
+        sender_profile?: { full_name: string };
+    };
     created_at: string;
     sender_profile?: { full_name: string; role: string };
     receiver_profile?: { full_name: string; role: string };
@@ -82,6 +88,12 @@ export type StudyGroupMessage = {
     content: string;
     message_type: 'text' | 'image' | 'voice';
     media_url?: string;
+    reply_to?: string;
+    reply_message?: {
+        id: string;
+        content: string;
+        profiles?: { full_name: string };
+    };
     created_at: string;
     updated_at?: string;
     profiles?: { full_name: string; role: string };

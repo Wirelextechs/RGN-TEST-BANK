@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase, StudyGroupMessage, StudyGroup } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { Send, Users, Image as ImageIcon, GraduationCap, LibraryBig, Mic, Square, Trash2 } from "lucide-react";
+import { Send, Users, Image as ImageIcon, GraduationCap, LibraryBig, Mic, Square, Trash2, Reply, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
@@ -29,6 +29,12 @@ export const StudyGroupChat = () => {
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
+    const [replyingTo, setReplyingTo] = useState<StudyGroupMessage | null>(null);
+
+    // Swipe tracking refs
+    const touchStartX = useRef(0);
+    const touchCurrentX = useRef(0);
+    const swipingMsgId = useRef<string | null>(null);
 
     const {
         isRecording,
@@ -107,7 +113,10 @@ export const StudyGroupChat = () => {
                 .order("created_at", { ascending: true })
                 .limit(200);
 
-            if (msgs) setMessages(msgs);
+            if (msgs) {
+                const enriched = await enrichReplies(msgs as any);
+                setMessages(enriched);
+            }
             setLoadingMessages(false);
         };
 
@@ -122,7 +131,20 @@ export const StudyGroupChat = () => {
                     const msg = payload.new as StudyGroupMessage;
                     const { data: prof } = await supabase.from("profiles").select("full_name, role").eq("id", msg.user_id).single();
                     msg.profiles = prof || undefined;
-                    setMessages(prev => [...prev, msg]);
+
+                    let finalMsg = { ...msg };
+                    if (msg.reply_to) {
+                        const { data: replyData } = await supabase
+                            .from("study_group_messages")
+                            .select("id, content, profiles:user_id(full_name)")
+                            .eq("id", msg.reply_to)
+                            .single();
+                        if (replyData) {
+                            finalMsg.reply_message = replyData as any;
+                        }
+                    }
+
+                    setMessages(prev => [...prev, finalMsg]);
                 }
             )
             .on("postgres_changes",
@@ -143,6 +165,85 @@ export const StudyGroupChat = () => {
         return () => { supabase.removeChannel(channel); };
     }, [activeGroup, activeGroupType, schoolName, courseName]);
 
+    // Helper: enrich messages array with reply data
+    const enrichReplies = async (msgs: StudyGroupMessage[]): Promise<StudyGroupMessage[]> => {
+        const replyIds = msgs.filter(m => m.reply_to).map(m => m.reply_to!);
+        if (replyIds.length === 0) return msgs;
+
+        const uniqueIds = [...new Set(replyIds)];
+        const { data: replyMessages } = await supabase
+            .from("study_group_messages")
+            .select("id, content, profiles:user_id(full_name)")
+            .in("id", uniqueIds);
+
+        if (!replyMessages) return msgs;
+        const replyMap = new Map(replyMessages.map((rm: any) => [rm.id, rm]));
+
+        return msgs.map(m => {
+            if (m.reply_to && replyMap.has(m.reply_to)) {
+                return { ...m, reply_message: replyMap.get(m.reply_to) };
+            }
+            return m;
+        });
+    };
+
+    // Scroll to a specific message
+    const scrollToMessage = (messageId: string) => {
+        const el = document.getElementById(`sg-msg-${messageId}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add(styles.highlighted);
+            setTimeout(() => el.classList.remove(styles.highlighted), 2000);
+        }
+    };
+
+    // Swipe-to-reply handlers
+    const handleTouchStart = (e: React.TouchEvent, msg: StudyGroupMessage) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchCurrentX.current = e.touches[0].clientX;
+        swipingMsgId.current = msg.id;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent, msg: StudyGroupMessage) => {
+        if (swipingMsgId.current !== msg.id) return;
+        touchCurrentX.current = e.touches[0].clientX;
+        const diff = touchCurrentX.current - touchStartX.current;
+
+        const swipeAmount = Math.min(Math.max(diff, 0), 80);
+        const el = document.getElementById(`sg-msg-${msg.id}`);
+        if (el) {
+            el.style.transform = `translateX(${swipeAmount}px)`;
+            el.style.transition = 'none';
+
+            const indicator = el.querySelector(`.${styles.replyIndicator}`) as HTMLElement;
+            if (indicator) {
+                indicator.style.opacity = swipeAmount > 40 ? '1' : `${swipeAmount / 40}`;
+            }
+        }
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent, msg: StudyGroupMessage) => {
+        if (swipingMsgId.current !== msg.id) return;
+        const diff = touchCurrentX.current - touchStartX.current;
+        const el = document.getElementById(`sg-msg-${msg.id}`);
+
+        if (el) {
+            el.style.transform = 'translateX(0)';
+            el.style.transition = 'transform 0.3s ease';
+        }
+
+        if (diff > 50) {
+            setReplyingTo(msg);
+            document.getElementById('sg-input')?.focus();
+        }
+        swipingMsgId.current = null;
+    };
+
+    const handleDoubleClick = (msg: StudyGroupMessage) => {
+        setReplyingTo(msg);
+        document.getElementById('sg-input')?.focus();
+    };
+
     // Auto-scroll
     useEffect(() => {
         if (scrollRef.current) {
@@ -156,13 +257,19 @@ export const StudyGroupChat = () => {
 
         const content = newMessage.trim();
         setNewMessage("");
+        const replyId = replyingTo?.id;
+        setReplyingTo(null);
 
-        await supabase.from("study_group_messages").insert({
+        const insertData: any = {
             group_id: activeGroup.id,
             user_id: user.id,
             content,
             message_type: "text"
-        });
+        };
+
+        if (replyId) insertData.reply_to = replyId;
+
+        await supabase.from("study_group_messages").insert(insertData);
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -268,7 +375,18 @@ export const StudyGroupChat = () => {
                                 const isEditing = editingMessageId === msg.id;
 
                                 return (
-                                    <div key={msg.id} className={`${styles.message} ${isOwn ? styles.own : ""}`}>
+                                    <div
+                                        key={msg.id}
+                                        id={`sg-msg-${msg.id}`}
+                                        className={`${styles.message} ${isOwn ? styles.own : ""}`}
+                                        onTouchStart={(e) => handleTouchStart(e, msg)}
+                                        onTouchMove={(e) => handleTouchMove(e, msg)}
+                                        onTouchEnd={(e) => handleTouchEnd(e, msg)}
+                                        onDoubleClick={() => handleDoubleClick(msg)}
+                                    >
+                                        <div className={styles.replyIndicator}>
+                                            <Reply size={16} />
+                                        </div>
                                         {!isOwn && (
                                             <div className={styles.avatar}>{(msg.profiles?.full_name || "?")[0].toUpperCase()}</div>
                                         )}
@@ -292,6 +410,21 @@ export const StudyGroupChat = () => {
                                                 </div>
                                             )}
                                             <div className={styles.bubble}>
+                                                {msg.reply_message && (
+                                                    <div
+                                                        className={styles.replyQuote}
+                                                        onClick={() => scrollToMessage(msg.reply_message!.id)}
+                                                    >
+                                                        <span className={styles.replyAuthor}>
+                                                            {msg.reply_message.profiles?.full_name || "Unknown"}
+                                                        </span>
+                                                        <span className={styles.replyText}>
+                                                            {msg.reply_message.content.length > 80
+                                                                ? msg.reply_message.content.substring(0, 80) + "..."
+                                                                : msg.reply_message.content}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 {msg.message_type === "image" && msg.media_url && (
                                                     <div className={styles.imageContainer} onClick={() => setSelectedImage(msg.media_url!)}>
                                                         <img src={msg.media_url} alt="Shared" className={styles.mediaImage} />
@@ -362,6 +495,27 @@ export const StudyGroupChat = () => {
                         )}
                     </div>
 
+                    {replyingTo && (
+                        <div className={styles.replyPreview}>
+                            <div className={styles.replyPreviewContent}>
+                                <Reply size={14} />
+                                <div className={styles.replyPreviewText}>
+                                    <span className={styles.replyPreviewAuthor}>
+                                        {replyingTo.profiles?.full_name || "Unknown"}
+                                    </span>
+                                    <span className={styles.replyPreviewMsg}>
+                                        {replyingTo.content.length > 60
+                                            ? replyingTo.content.substring(0, 60) + "..."
+                                            : replyingTo.content}
+                                    </span>
+                                </div>
+                            </div>
+                            <button className={styles.replyPreviewClose} onClick={() => setReplyingTo(null)}>
+                                <X size={16} />
+                            </button>
+                        </div>
+                    )}
+
                     <div className={styles.inputContainerWrapper}>
                         {isRecording ? (
                             <div className={styles.recordingUI}>
@@ -396,7 +550,7 @@ export const StudyGroupChat = () => {
                                 </label>
                                 <Textarea
                                     id="sg-input"
-                                    placeholder="Message your study group..."
+                                    placeholder={replyingTo ? "Type your reply..." : "Message your study group..."}
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     onKeyDown={(e) => {

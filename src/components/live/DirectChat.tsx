@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase, DirectMessage } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { Send, ArrowLeft, Image as ImageIcon, Mic, Square, Trash2 } from "lucide-react";
+import { Send, ArrowLeft, Image as ImageIcon, Mic, Square, Trash2, Reply, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
@@ -24,7 +24,13 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
+    const [replyingTo, setReplyingTo] = useState<DirectMessage | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Swipe tracking refs
+    const touchStartX = useRef(0);
+    const touchCurrentX = useRef(0);
+    const swipingMsgId = useRef<string | null>(null);
 
     const {
         isRecording,
@@ -49,7 +55,10 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                 .order("created_at", { ascending: true })
                 .limit(200);
 
-            if (data) setMessages(data);
+            if (data) {
+                const enriched = await enrichReplies(data as any);
+                setMessages(enriched);
+            }
             setLoading(false);
 
             // Mark unread messages as read
@@ -68,13 +77,26 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
             .channel(`dm-${user.id}-${otherUserId}`)
             .on("postgres_changes",
                 { event: "INSERT", schema: "public", table: "direct_messages" },
-                (payload) => {
+                async (payload) => {
                     const msg = payload.new as DirectMessage;
                     if (
                         (msg.sender_id === user.id && msg.receiver_id === otherUserId) ||
                         (msg.sender_id === otherUserId && msg.receiver_id === user.id)
                     ) {
-                        setMessages(prev => [...prev, msg]);
+                        let finalMsg = { ...msg };
+                        if (msg.reply_to) {
+                            const { data: replyData } = await supabase
+                                .from("direct_messages")
+                                .select("id, content")
+                                .eq("id", msg.reply_to)
+                                .single();
+                            if (replyData) {
+                                // Add sender's pseudo-profile if we wanted names, but here we just need the text
+                                finalMsg.reply_message = replyData as any;
+                            }
+                        }
+
+                        setMessages(prev => [...prev, finalMsg]);
                         // Mark as read if we're the receiver
                         if (msg.receiver_id === user.id) {
                             supabase
@@ -105,6 +127,85 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
         return () => { supabase.removeChannel(channel); };
     }, [user, otherUserId]);
 
+    // Helper: enrich messages array with reply data
+    const enrichReplies = async (msgs: DirectMessage[]): Promise<DirectMessage[]> => {
+        const replyIds = msgs.filter(m => m.reply_to).map(m => m.reply_to!);
+        if (replyIds.length === 0) return msgs;
+
+        const uniqueIds = [...new Set(replyIds)];
+        const { data: replyMessages } = await supabase
+            .from("direct_messages")
+            .select("id, content")
+            .in("id", uniqueIds);
+
+        if (!replyMessages) return msgs;
+        const replyMap = new Map(replyMessages.map((rm: any) => [rm.id, rm]));
+
+        return msgs.map(m => {
+            if (m.reply_to && replyMap.has(m.reply_to)) {
+                return { ...m, reply_message: replyMap.get(m.reply_to) };
+            }
+            return m;
+        });
+    };
+
+    // Scroll to a specific message
+    const scrollToMessage = (messageId: string) => {
+        const el = document.getElementById(`dm-msg-${messageId}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add(styles.highlighted);
+            setTimeout(() => el.classList.remove(styles.highlighted), 2000);
+        }
+    };
+
+    // Swipe-to-reply handlers
+    const handleTouchStart = (e: React.TouchEvent, msg: DirectMessage) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchCurrentX.current = e.touches[0].clientX;
+        swipingMsgId.current = msg.id;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent, msg: DirectMessage) => {
+        if (swipingMsgId.current !== msg.id) return;
+        touchCurrentX.current = e.touches[0].clientX;
+        const diff = touchCurrentX.current - touchStartX.current;
+
+        const swipeAmount = Math.min(Math.max(diff, 0), 80);
+        const el = document.getElementById(`dm-msg-${msg.id}`);
+        if (el) {
+            el.style.transform = `translateX(${swipeAmount}px)`;
+            el.style.transition = 'none';
+
+            const indicator = el.querySelector(`.${styles.replyIndicator}`) as HTMLElement;
+            if (indicator) {
+                indicator.style.opacity = swipeAmount > 40 ? '1' : `${swipeAmount / 40}`;
+            }
+        }
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent, msg: DirectMessage) => {
+        if (swipingMsgId.current !== msg.id) return;
+        const diff = touchCurrentX.current - touchStartX.current;
+        const el = document.getElementById(`dm-msg-${msg.id}`);
+
+        if (el) {
+            el.style.transform = 'translateX(0)';
+            el.style.transition = 'transform 0.3s ease';
+        }
+
+        if (diff > 50) {
+            setReplyingTo(msg);
+            document.getElementById('dm-input')?.focus();
+        }
+        swipingMsgId.current = null;
+    };
+
+    const handleDoubleClick = (msg: DirectMessage) => {
+        setReplyingTo(msg);
+        document.getElementById('dm-input')?.focus();
+    };
+
     // Scroll to bottom on new messages
     useEffect(() => {
         if (scrollRef.current) {
@@ -118,13 +219,19 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
 
         const content = newMessage.trim();
         setNewMessage("");
+        const replyId = replyingTo?.id;
+        setReplyingTo(null);
 
-        await supabase.from("direct_messages").insert({
+        const insertData: any = {
             sender_id: user.id,
             receiver_id: otherUserId,
             content,
             message_type: "text"
-        });
+        };
+
+        if (replyId) insertData.reply_to = replyId;
+
+        await supabase.from("direct_messages").insert(insertData);
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -200,8 +307,34 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                     messages.map((msg) => {
                         const isOwn = msg.sender_id === user?.id;
                         return (
-                            <div key={msg.id} className={`${styles.message} ${isOwn ? styles.own : ""}`}>
+                            <div
+                                key={msg.id}
+                                id={`dm-msg-${msg.id}`}
+                                className={`${styles.message} ${isOwn ? styles.own : ""}`}
+                                onTouchStart={(e) => handleTouchStart(e, msg)}
+                                onTouchMove={(e) => handleTouchMove(e, msg)}
+                                onTouchEnd={(e) => handleTouchEnd(e, msg)}
+                                onDoubleClick={() => handleDoubleClick(msg)}
+                            >
+                                <div className={styles.replyIndicator}>
+                                    <Reply size={16} />
+                                </div>
                                 <div className={styles.bubble}>
+                                    {msg.reply_message && (
+                                        <div
+                                            className={styles.replyQuote}
+                                            onClick={() => scrollToMessage(msg.reply_message!.id)}
+                                        >
+                                            <span className={styles.replyAuthor}>
+                                                {msg.reply_message.sender_profile?.full_name || (msg.reply_message as any).sender_id === user?.id ? "You" : "Them"}
+                                            </span>
+                                            <span className={styles.replyText}>
+                                                {msg.reply_message.content.length > 80
+                                                    ? msg.reply_message.content.substring(0, 80) + "..."
+                                                    : msg.reply_message.content}
+                                            </span>
+                                        </div>
+                                    )}
                                     {msg.message_type === "image" && msg.media_url && (
                                         <div className={styles.imageContainer} onClick={() => setSelectedImage(msg.media_url!)}>
                                             <img src={msg.media_url} alt="Shared image" className={styles.mediaImage} style={{ cursor: 'pointer' }} />
@@ -268,6 +401,27 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                 )}
             </div>
 
+            {replyingTo && (
+                <div className={styles.replyPreview}>
+                    <div className={styles.replyPreviewContent}>
+                        <Reply size={14} />
+                        <div className={styles.replyPreviewText}>
+                            <span className={styles.replyPreviewAuthor}>
+                                {replyingTo.sender_id === user?.id ? "You" : "Them"}
+                            </span>
+                            <span className={styles.replyPreviewMsg}>
+                                {replyingTo.content.length > 60
+                                    ? replyingTo.content.substring(0, 60) + "..."
+                                    : replyingTo.content}
+                            </span>
+                        </div>
+                    </div>
+                    <button className={styles.replyPreviewClose} onClick={() => setReplyingTo(null)}>
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
             <div className={styles.inputContainerWrapper}>
                 {isRecording ? (
                     <div className={styles.recordingUI}>
@@ -302,7 +456,7 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                         </label>
                         <Textarea
                             id="dm-input"
-                            placeholder="Type a message..."
+                            placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyDown={(e) => {
