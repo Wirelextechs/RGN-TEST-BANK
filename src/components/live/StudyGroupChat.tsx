@@ -368,7 +368,12 @@ export const StudyGroupChat = () => {
                 <div className={styles.emptyState}>
                     <Users size={40} />
                     <h3>No {activeGroupType === 'school' ? 'Institution' : 'Course'} Group Available</h3>
-                    <p>Update your profile with your {activeGroupType === 'school' ? 'school' : 'course'} to join this study group.</p>
+                    <p>
+                        We could not find an active group for your profile.
+                        Your current {activeGroupType === 'school' ? 'school' : 'course'} is set to:
+                        <strong> {activeGroupType === 'school' ? (schoolName || 'None') : (courseName || 'None')} </strong>.
+                    </p>
+                    <p>Update your profile settings to join a valid study group.</p>
                 </div>
             ) : (
                 <>
