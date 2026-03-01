@@ -13,7 +13,8 @@ ALTER TABLE study_groups ALTER COLUMN course_name DROP NOT NULL;
 -- and the table is added to the supabase_realtime publication.
 
 -- Add the message tables to the realtime publication
-BEGIN;
+DO $$
+BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables 
     WHERE pubname = 'supabase_realtime' AND tablename = 'study_group_messages'
@@ -27,7 +28,7 @@ BEGIN;
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
   END IF;
-COMMIT;
+END $$;
 
 -- Make sure replica identity is set to DEFAULT or FULL so updates/deletes broadcast old records
 ALTER TABLE study_group_messages REPLICA IDENTITY FULL;
