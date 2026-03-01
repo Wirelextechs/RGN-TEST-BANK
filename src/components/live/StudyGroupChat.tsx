@@ -269,7 +269,11 @@ export const StudyGroupChat = () => {
 
         if (replyId) insertData.reply_to = replyId;
 
-        await supabase.from("study_group_messages").insert(insertData);
+        const { error } = await supabase.from("study_group_messages").insert(insertData);
+        if (error) {
+            console.error("Insert error:", error);
+            alert(`Could not send message: ${error.message} (Are you sure you ran the SQL script?)`);
+        }
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,13 +288,15 @@ export const StudyGroupChat = () => {
 
         const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
 
-        await supabase.from("study_group_messages").insert({
+        const { error: insertErr } = await supabase.from("study_group_messages").insert({
             group_id: activeGroup.id,
             user_id: user.id,
             content: "📷 Image",
             message_type: "image",
             media_url: urlData.publicUrl
         });
+
+        if (insertErr) alert("Failed to send image: " + insertErr.message);
     };
 
     const handleVoiceSend = async () => {
@@ -306,13 +312,15 @@ export const StudyGroupChat = () => {
 
         const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
 
-        await supabase.from("study_group_messages").insert({
+        const { error: insertErr } = await supabase.from("study_group_messages").insert({
             group_id: activeGroup.id,
             user_id: user.id,
             content: "🎤 Voice Message",
             message_type: "voice",
             media_url: urlData.publicUrl
         });
+
+        if (insertErr) alert("Failed to send voice note: " + insertErr.message);
 
         setAudioBlob(null);
     };
@@ -399,7 +407,8 @@ export const StudyGroupChat = () => {
                                                             className={styles.actionBtn}
                                                             onClick={async () => {
                                                                 if (confirm("Delete this message?")) {
-                                                                    await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                                    const { error } = await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                                    if (error) alert("Could not delete: " + error.message);
                                                                 }
                                                             }}
                                                             style={{ fontSize: '11px', color: 'var(--secondary)' }}
@@ -478,7 +487,8 @@ export const StudyGroupChat = () => {
                                                                 style={{ fontSize: '11px', color: 'var(--secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
                                                                 onClick={async () => {
                                                                     if (confirm("Delete your message?")) {
-                                                                        await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                                        const { error } = await supabase.from("study_group_messages").delete().eq("id", msg.id);
+                                                                        if (error) alert("Could not delete message: " + error.message);
                                                                     }
                                                                 }}
                                                             >

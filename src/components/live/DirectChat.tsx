@@ -231,7 +231,11 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
 
         if (replyId) insertData.reply_to = replyId;
 
-        await supabase.from("direct_messages").insert(insertData);
+        const { error } = await supabase.from("direct_messages").insert(insertData);
+        if (error) {
+            console.error("Direct message insert error:", error);
+            alert(`Could not send message: ${error.message} (Did you run the SQL script?)`);
+        }
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,42 +243,46 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
         if (!file || !user) return;
 
         const ext = file.name.split(".").pop();
-        const path = `dm/${user.id}/${Date.now()}.${ext}`;
+        const path = `direct-messages/${user.id}_${otherUserId}/${Date.now()}.${ext}`;
 
-        const { error } = await supabase.storage.from("chat-media").upload(path, file);
-        if (error) return;
+        const { error: uploadError } = await supabase.storage.from("chat-media").upload(path, file);
+        if (uploadError) return;
 
         const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
 
-        await supabase.from("direct_messages").insert({
+        const { error: insertError } = await supabase.from("direct_messages").insert({
             sender_id: user.id,
             receiver_id: otherUserId,
             content: "📷 Image",
             message_type: "image",
             media_url: urlData.publicUrl
         });
+
+        if (insertError) alert("Failed to send image: " + insertError.message);
     };
 
     const handleVoiceSend = async () => {
         if (!audioBlob || !user) return;
 
-        const path = `dm/${user.id}/voice_${Date.now()}.webm`;
-        const { error } = await supabase.storage.from("chat-media").upload(path, audioBlob);
+        const path = `direct-messages/${user.id}_${otherUserId}/voice_${Date.now()}.webm`;
+        const { error: uploadError } = await supabase.storage.from("chat-media").upload(path, audioBlob);
 
-        if (error) {
-            console.error("Failed to upload voice note:", error);
+        if (uploadError) {
+            console.error("Failed to upload voice note:", uploadError);
             return;
         }
 
         const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
 
-        await supabase.from("direct_messages").insert({
+        const { error: insertError } = await supabase.from("direct_messages").insert({
             sender_id: user.id,
             receiver_id: otherUserId,
             content: "🎤 Voice Message",
             message_type: "voice",
             media_url: urlData.publicUrl
         });
+
+        if (insertError) alert("Failed to send voice note: " + insertError.message);
 
         setAudioBlob(null);
     };
@@ -383,9 +391,9 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                                             <button
                                                 className={styles.deleteBtn}
                                                 onClick={async () => {
-                                                    if (confirm("Are you sure you want to delete this message?")) {
-                                                        await supabase.from("direct_messages").delete().eq("id", msg.id);
-                                                        setMessages(prev => prev.filter(m => m.id !== msg.id));
+                                                    if (confirm("Delete your message?")) {
+                                                        const { error } = await supabase.from("direct_messages").delete().eq("id", msg.id);
+                                                        if (error) alert("Could not delete message: " + error.message);
                                                     }
                                                 }}
                                                 style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}
