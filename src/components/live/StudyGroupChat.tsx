@@ -21,6 +21,7 @@ export const StudyGroupChat = () => {
     const [messages, setMessages] = useState<StudyGroupMessage[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [loadingGroups, setLoadingGroups] = useState(true);
+    const [groupInitError, setGroupInitError] = useState<string | null>(null);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [memberCount, setMemberCount] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,10 +74,15 @@ export const StudyGroupChat = () => {
                         const data = await res.json();
                         if (data.schoolGroup) setSchoolGroup(data.schoolGroup);
                         if (data.courseGroup) setCourseGroup(data.courseGroup);
+                    } else {
+                        const errorData = await res.json();
+                        console.error("API Error Response:", errorData);
+                        setGroupInitError(errorData.error || "Failed to initialize groups.");
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to init study groups", err);
+                setGroupInitError(err.message || "Network error while initializing groups.");
             }
 
             setLoadingGroups(false);
@@ -367,13 +373,23 @@ export const StudyGroupChat = () => {
             {!activeGroup ? (
                 <div className={styles.emptyState}>
                     <Users size={40} />
-                    <h3>No {activeGroupType === 'school' ? 'Institution' : 'Course'} Group Available</h3>
-                    <p>
-                        We could not find an active group for your profile.
-                        Your current {activeGroupType === 'school' ? 'school' : 'course'} is set to:
-                        <strong> {activeGroupType === 'school' ? (schoolName || 'None') : (courseName || 'None')} </strong>.
-                    </p>
-                    <p>Update your profile settings to join a valid study group.</p>
+                    {groupInitError ? (
+                        <>
+                            <h3 style={{ color: 'var(--error)' }}>Database Error</h3>
+                            <p style={{ color: 'var(--error)' }}>{groupInitError}</p>
+                            <p>Please send this error message to the developer.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h3>No {activeGroupType === 'school' ? 'Institution' : 'Course'} Group Available</h3>
+                            <p>
+                                We could not find an active group for your profile.
+                                Your current {activeGroupType === 'school' ? 'school' : 'course'} is set to:
+                                <strong> {activeGroupType === 'school' ? (schoolName || 'None') : (courseName || 'None')} </strong>.
+                            </p>
+                            <p>Update your profile settings to join a valid study group.</p>
+                        </>
+                    )}
                 </div>
             ) : (
                 <>
