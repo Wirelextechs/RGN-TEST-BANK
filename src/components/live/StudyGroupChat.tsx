@@ -144,7 +144,11 @@ export const StudyGroupChat = () => {
                         }
                     }
 
-                    setMessages(prev => [...prev, finalMsg]);
+                    // Check if message already exists to prevent duplicates
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === finalMsg.id)) return prev;
+                        return [...prev, finalMsg];
+                    });
                 }
             )
             .on("postgres_changes",
@@ -160,7 +164,14 @@ export const StudyGroupChat = () => {
                     setMessages(prev => prev.filter(m => m.id !== payload.old.id));
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log(`Subscribed to realtime events for group ${activeGroup.id}`);
+                }
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('Realtime channel error');
+                }
+            });
 
         return () => { supabase.removeChannel(channel); };
     }, [activeGroup, activeGroupType, schoolName, courseName]);

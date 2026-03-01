@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
                     .from("study_groups")
                     .insert({
                         course_name: course,
-                        group_type: "course"
+                        group_type: "course",
+                        school_name: "Global Course Group" // Fallback to avoid null constraint issues if the SQL wasn't run perfectly
                     })
                     .select().single();
                 exCourseGroup = nGroup;
