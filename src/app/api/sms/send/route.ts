@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { sendBulkSMS } from '@/lib/sms';
 
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
+export const runtime = 'edge';
+
 export async function POST(req: NextRequest) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
