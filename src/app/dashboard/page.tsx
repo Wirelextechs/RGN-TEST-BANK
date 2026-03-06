@@ -134,6 +134,38 @@ export default function DashboardPage() {
         return () => { supabase.removeChannel(settingsChannel); };
     }, [user, profile?.role]);
 
+    // Handle Paystack redirect verification
+    useEffect(() => {
+        if (!user || typeof window === 'undefined') return;
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const reference = searchParams.get('reference');
+
+        if (reference) {
+            setActiveTab('payments');
+            const verifyPayment = async () => {
+                try {
+                    const res = await fetch('/api/payments/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reference, user_id: user.id })
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        alert(data.message || "Payment successful! You are now a premium user.");
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    } else {
+                        alert(data.error || "Payment verification failed.");
+                    }
+                } catch (err) {
+                    console.error("Verification error", err);
+                }
+            };
+            verifyPayment();
+        }
+    }, [user]);
+
     useEffect(() => {
         if (!loading && !user) {
             router.push("/login");
@@ -1471,6 +1503,62 @@ export default function DashboardPage() {
                                             ))}
                                         </div>
                                     </div>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* Student Payments Tab */}
+                        {activeTab === 'payments' && !isAdmin && (
+                            <div className={styles.overviewSection}>
+                                <Card title="Premium Access Checkout" className={styles.paywallCard} style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', padding: '3rem 2rem' }}>
+                                    {profile.is_premium ? (
+                                        <>
+                                            <Crown size={64} color="#FFD700" style={{ margin: '0 auto 1.5rem' }} />
+                                            <h2>You are a Premium Member!</h2>
+                                            <p style={{ color: 'var(--secondary)', marginTop: '1rem', lineHeight: '1.6' }}>
+                                                Thank you for upgrading. You now have full lifetime access to Live Classroom interactive chats, complete Lesson Archives, and direct AI Quiz generation.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CreditCard size={64} style={{ color: 'var(--primary)', margin: '0 auto 1.5rem' }} />
+                                            <h2>Unlock Full Potential</h2>
+                                            <p style={{ color: 'var(--secondary)', marginTop: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+                                                Get unlimited access to the Live Chat, Study Groups, DM Instructors, and all PDF Quiz Generators for a one-time fee of <strong>GHS {premiumPrice}</strong>.
+                                            </p>
+                                            <Button
+                                                variant="primary"
+                                                size="lg"
+                                                style={{ width: '100%' }}
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await fetch('/api/payments/initialize', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                email: profile.email || user?.email || 'student@rgn.com',
+                                                                amount: premiumPrice,
+                                                                callback_url: window.location.origin + '/dashboard?payment=verify'
+                                                            })
+                                                        });
+                                                        const data = await res.json();
+                                                        if (data.authorization_url) {
+                                                            window.location.href = data.authorization_url;
+                                                        } else {
+                                                            alert(data.error || "Failed to initialize payment");
+                                                        }
+                                                    } catch (err: any) {
+                                                        alert("Payment error: " + err.message);
+                                                    }
+                                                }}
+                                            >
+                                                Pay GHS {premiumPrice} Now
+                                            </Button>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--secondary)', marginTop: '1.5rem' }}>
+                                                Secured by Paystack. Mobile Money & Cards accepted.
+                                            </p>
+                                        </>
+                                    )}
                                 </Card>
                             </div>
                         )}
