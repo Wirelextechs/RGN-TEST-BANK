@@ -189,9 +189,14 @@ export default function DashboardPage() {
                 .channel('admin-dashboard-sync')
                 .on('postgres_changes',
                     { event: '*', schema: 'public', table: 'profiles' },
-                    () => {
+                    (payload) => {
                         // Re-fetch data on any profile change to keep dashboard live
                         fetchData();
+
+                        // Also specifically update the allStudents array if it's an UPDATE event so premium toggles are instant
+                        if (payload.eventType === 'UPDATE' && payload.new) {
+                            setAllStudents(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
+                        }
                     }
                 )
                 .subscribe();
