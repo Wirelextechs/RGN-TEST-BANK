@@ -5,6 +5,7 @@ interface CardProps {
     children: React.ReactNode;
     title?: string;
     className?: string;
+    style?: React.CSSProperties;
     glass?: boolean;
     animate?: boolean;
     onClick?: () => void;
@@ -16,6 +17,7 @@ export const Card: React.FC<CardProps> = ({
     className = '',
     glass = false,
     animate = true,
+    style,
     onClick
 }) => {
     return (
@@ -26,6 +28,7 @@ export const Card: React.FC<CardProps> = ({
               ${animate ? 'animate-scale-in' : ''} 
               ${className}
             `}
+            style={style}
             onClick={onClick}
         >
             {title && <div className={styles.header}><h3 className={styles.title}>{title}</h3></div>}
