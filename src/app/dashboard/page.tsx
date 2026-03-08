@@ -366,6 +366,11 @@ export default function DashboardPage() {
 
     return (
         <div className={styles.container}>
+            <Script
+                src="https://js.paystack.co/v2/inline.js"
+                strategy="afterInteractive"
+                onLoad={() => setPaystackLoaded(true)}
+            />
             {/* Hand Raise Notifications (Google Meet Style) */}
             {isAdmin && notifications.length > 0 && (
                 <div className={styles.toastContainer}>
@@ -1567,11 +1572,6 @@ export default function DashboardPage() {
                                         </>
                                     ) : (
                                         <>
-                                            <Script
-                                                src="https://js.paystack.co/v2/inline.js"
-                                                strategy="afterInteractive"
-                                                onLoad={() => setPaystackLoaded(true)}
-                                            />
                                             <CreditCard size={64} style={{ color: 'var(--primary)', margin: '0 auto 1.5rem' }} />
                                             <h2>Unlock Full Potential</h2>
                                             <p style={{ color: 'var(--secondary)', marginTop: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
