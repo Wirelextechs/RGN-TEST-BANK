@@ -9,6 +9,7 @@ import { LessonArchive } from "@/components/live/LessonArchive";
 import { AdminInbox, useUnreadDMCount } from "@/components/live/AdminInbox";
 import { DirectChat } from "@/components/live/DirectChat";
 import { StudyGroupChat } from "@/components/live/StudyGroupChat";
+import { VideoClass } from "@/components/live/VideoClass";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -674,14 +675,8 @@ export default function DashboardPage() {
                         {activeTab === "live" && (
                             isStaff ? (
                                 <div className={styles.adminTools}>
-                                    <div className={styles.videoPlayer}>
-                                        <div className={styles.videoOverlay}>
-                                            <div className={styles.liveBadge}>LIVE</div>
-                                            <span>Staff Monitor</span>
-                                        </div>
-                                        <div className={styles.placeholderIcon}>
-                                            <Video size={64} />
-                                        </div>
+                                    <div style={{ height: '500px', marginBottom: '1.5rem' }}>
+                                        <VideoClass />
                                     </div>
                                     <QuizGenerator />
                                     <Card className={styles.activityCard} title="Top 10 Active Students">
@@ -835,14 +830,8 @@ export default function DashboardPage() {
                             ) : (
                                 <div className={styles.studentView}>
                                     <>
-                                        <div className={styles.videoPlayer}>
-                                            <div className={styles.videoOverlay}>
-                                                <div className={styles.liveBadge}>LIVE</div>
-                                                <span>RGN Live Prep</span>
-                                            </div>
-                                            <div className={styles.placeholderIcon}>
-                                                <Video size={64} />
-                                            </div>
+                                        <div style={{ height: '500px', marginBottom: '1.5rem' }}>
+                                            <VideoClass />
                                         </div>
 
                                         <div className={styles.stats}>
