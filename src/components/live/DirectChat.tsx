@@ -287,6 +287,12 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
         setAudioBlob(null);
     };
 
+    useEffect(() => {
+        if (audioBlob) {
+            handleVoiceSend();
+        }
+    }, [audioBlob]);
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
@@ -430,41 +436,27 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                 </div>
             )}
 
-            <div className={styles.inputContainerWrapper}>
+            <form onSubmit={handleSend} className={styles.inputArea}>
                 {isRecording ? (
-                    <div className={styles.recordingUI}>
-                        <div className={styles.recordingPulse} />
-                        <span className={styles.recordingTime}>{formatTime(recordingTime)}</span>
-                        <div className={styles.recordingActions}>
-                            <button onClick={cancelRecording} className={styles.cancelRecordBtn}>
-                                <Trash2 size={18} />
-                            </button>
-                            <button onClick={stopRecording} className={styles.stopRecordBtn}>
-                                <Square size={18} fill="currentColor" />
-                            </button>
+                    <div className={styles.recordingOverlay}>
+                        <div className={styles.recordingIndicator}>
+                            <div className={styles.pulse}></div>
+                            <span>Recording {formatTime(recordingTime)}</span>
                         </div>
-                    </div>
-                ) : audioBlob ? (
-                    <div className={styles.preSendUI}>
-                        <audio src={URL.createObjectURL(audioBlob)} controls className={styles.audioPreview} />
                         <div className={styles.recordingActions}>
-                            <button onClick={cancelRecording} className={styles.cancelRecordBtn}>
-                                <Trash2 size={18} />
-                            </button>
-                            <Button onClick={handleVoiceSend} variant="primary" size="sm" className={styles.sendRecordBtn}>
-                                <Send size={18} />
-                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={cancelRecording}>Cancel</Button>
+                            <Button type="button" variant="primary" size="sm" onClick={stopRecording}>Send</Button>
                         </div>
                     </div>
                 ) : (
-                    <form onSubmit={handleSend} className={styles.inputArea}>
+                    <>
                         <label className={styles.mediaBtn}>
-                            <ImageIcon size={20} />
+                            <ImageIcon size={18} />
                             <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
                         </label>
                         <Textarea
                             id="dm-input"
-                            placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
+                            placeholder={replyingTo ? "Type your reply..." : "Type your message..."}
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyDown={(e) => {
@@ -475,18 +467,15 @@ export const DirectChat = ({ otherUserId, otherUserName, onBack }: DirectChatPro
                             }}
                             className={styles.input}
                         />
-                        {newMessage.trim() ? (
-                            <Button type="submit" variant="primary" className={styles.sendBtn} disabled={!newMessage.trim()}>
-                                <Send size={18} />
-                            </Button>
-                        ) : (
-                            <button type="button" onClick={startRecording} className={styles.micBtn}>
-                                <Mic size={20} />
-                            </button>
-                        )}
-                    </form>
+                        <button type="button" className={styles.voiceBtn} onClick={startRecording}>
+                            <Mic size={18} />
+                        </button>
+                        <Button type="submit" variant="primary" size="sm" className={styles.sendBtn} disabled={!newMessage.trim()}>
+                            <Send size={18} />
+                        </Button>
+                    </>
                 )}
-            </div>
+            </form>
 
             {selectedImage && (
                 <ImageLightbox

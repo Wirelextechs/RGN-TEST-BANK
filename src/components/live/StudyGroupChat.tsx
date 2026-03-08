@@ -342,6 +342,12 @@ export const StudyGroupChat = () => {
         setAudioBlob(null);
     };
 
+    useEffect(() => {
+        if (audioBlob) {
+            handleVoiceSend();
+        }
+    }, [audioBlob]);
+
     if (loadingGroups) {
         return (
             <div className={styles.container}>
@@ -558,36 +564,22 @@ export const StudyGroupChat = () => {
                         </div>
                     )}
 
-                    <div className={styles.inputContainerWrapper}>
+                    <form onSubmit={handleSend} className={styles.inputArea}>
                         {isRecording ? (
-                            <div className={styles.recordingUI}>
-                                <div className={styles.recordingPulse} />
-                                <span className={styles.recordingTime}>{formatTime(recordingTime)}</span>
-                                <div className={styles.recordingActions}>
-                                    <button type="button" onClick={cancelRecording} className={styles.cancelRecordBtn}>
-                                        <Trash2 size={18} />
-                                    </button>
-                                    <button type="button" onClick={stopRecording} className={styles.stopRecordBtn}>
-                                        <Square size={18} fill="currentColor" />
-                                    </button>
+                            <div className={styles.recordingOverlay}>
+                                <div className={styles.recordingIndicator}>
+                                    <div className={styles.pulse}></div>
+                                    <span>Recording {formatTime(recordingTime)}</span>
                                 </div>
-                            </div>
-                        ) : audioBlob ? (
-                            <div className={styles.preSendUI}>
-                                <audio src={URL.createObjectURL(audioBlob)} controls className={styles.audioPreview} />
                                 <div className={styles.recordingActions}>
-                                    <button type="button" onClick={cancelRecording} className={styles.cancelRecordBtn}>
-                                        <Trash2 size={18} />
-                                    </button>
-                                    <Button type="button" onClick={handleVoiceSend} variant="primary" size="sm" className={styles.sendRecordBtn}>
-                                        <Send size={18} />
-                                    </Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={cancelRecording}>Cancel</Button>
+                                    <Button type="button" variant="primary" size="sm" onClick={stopRecording}>Send</Button>
                                 </div>
                             </div>
                         ) : (
-                            <form onSubmit={handleSend} className={styles.inputArea}>
+                            <>
                                 <label className={styles.mediaBtn}>
-                                    <ImageIcon size={20} />
+                                    <ImageIcon size={18} />
                                     <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
                                 </label>
                                 <Textarea
@@ -603,18 +595,15 @@ export const StudyGroupChat = () => {
                                     }}
                                     className={styles.input}
                                 />
-                                {newMessage.trim() ? (
-                                    <Button type="submit" variant="primary" className={styles.sendBtn} disabled={!newMessage.trim()}>
-                                        <Send size={18} />
-                                    </Button>
-                                ) : (
-                                    <button type="button" onClick={startRecording} className={styles.micBtn}>
-                                        <Mic size={20} />
-                                    </button>
-                                )}
-                            </form>
+                                <button type="button" className={styles.voiceBtn} onClick={startRecording}>
+                                    <Mic size={18} />
+                                </button>
+                                <Button type="submit" variant="primary" size="sm" className={styles.sendBtn} disabled={!newMessage.trim()}>
+                                    <Send size={18} />
+                                </Button>
+                            </>
                         )}
-                    </div>
+                    </form>
                 </>
             )}
 

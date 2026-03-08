@@ -43,10 +43,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { supabase, Profile } from "@/lib/supabase";
 import Image from "next/image";
+import Script from "next/script";
 
 export default function DashboardPage() {
     const { user, profile, loading, onlineCount, signOut } = useAuth();
     const router = useRouter();
+    const [paystackLoaded, setPaystackLoaded] = useState(false);
     const [activeTab, setActiveTab] = useState("live");
     const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
     const [schoolStats, setSchoolStats] = useState<{ school: string, count: number }[]>([]);
@@ -165,6 +167,45 @@ export default function DashboardPage() {
             verifyPayment();
         }
     }, [user]);
+
+    const handleUpgradeClick = async () => {
+        if (!paystackLoaded) {
+            alert("Secure payment system is loading, please wait a moment.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/payments/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: profile?.email || user?.email || 'student@rgn.com',
+                    amount: premiumPrice,
+                    callback_url: window.location.origin + '/dashboard?payment=verify'
+                })
+            });
+            const data = await res.json();
+
+            if (data.access_code) {
+                const paystack = new (window as any).PaystackPop();
+                paystack.resumeTransaction(data.access_code, {
+                    onSuccess: function (transaction: any) {
+                        window.location.href = `/dashboard?payment=verify&reference=${transaction.reference}`;
+                    },
+                    onCancel: function () {
+                        // User closed the modal early
+                    }
+                });
+            } else if (data.authorization_url) {
+                // Fallback to redirect if inline fails or access_code is missing
+                window.location.href = data.authorization_url;
+            } else {
+                alert(data.error || "Failed to initialize payment");
+            }
+        } catch (err: any) {
+            alert("Payment error: " + err.message);
+        }
+    };
 
     useEffect(() => {
         if (!loading && !user) {
@@ -1272,7 +1313,7 @@ export default function DashboardPage() {
                                         <Crown size={48} color="#FFD700" />
                                         <h2>Live Classroom</h2>
                                         <p>Access to live interactive classes is a Premium feature.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
+                                        <Button variant="primary" onClick={handleUpgradeClick}>Upgrade for Access</Button>
                                     </Card>
                                 ) : (
                                     <Chat userProfile={profile} isAdmin={profile.role === 'admin'} isTA={profile.role === 'ta'} />
@@ -1286,7 +1327,7 @@ export default function DashboardPage() {
                                         <Crown size={48} color="#FFD700" />
                                         <h2>Lesson Archive</h2>
                                         <p>Access to past lessons and materials is a Premium feature.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
+                                        <Button variant="primary" onClick={handleUpgradeClick}>Upgrade for Access</Button>
                                     </Card>
                                 ) : (
                                     <LessonArchive userProfile={profile} />
@@ -1314,7 +1355,7 @@ export default function DashboardPage() {
                                         <Crown size={48} color="#FFD700" />
                                         <h2>Direct Admin Access</h2>
                                         <p>Direct chat with instructors and admins is a Premium feature.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
+                                        <Button variant="primary" onClick={handleUpgradeClick}>Upgrade for Access</Button>
                                     </Card>
                                 ) : adminUsers.length > 0 ? (
                                     <DirectChat
@@ -1341,7 +1382,7 @@ export default function DashboardPage() {
                                         <Crown size={48} color="#FFD700" />
                                         <h2>Study Groups</h2>
                                         <p>Collaboration in study groups is a Premium feature.</p>
-                                        <Button variant="primary" onClick={() => setActiveTab("payments")}>Upgrade for Access</Button>
+                                        <Button variant="primary" onClick={handleUpgradeClick}>Upgrade for Access</Button>
                                     </Card>
                                 ) : (
                                     <StudyGroupChat />
@@ -1526,6 +1567,11 @@ export default function DashboardPage() {
                                         </>
                                     ) : (
                                         <>
+                                            <Script
+                                                src="https://js.paystack.co/v2/inline.js"
+                                                strategy="afterInteractive"
+                                                onLoad={() => setPaystackLoaded(true)}
+                                            />
                                             <CreditCard size={64} style={{ color: 'var(--primary)', margin: '0 auto 1.5rem' }} />
                                             <h2>Unlock Full Potential</h2>
                                             <p style={{ color: 'var(--secondary)', marginTop: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
@@ -1535,27 +1581,7 @@ export default function DashboardPage() {
                                                 variant="primary"
                                                 size="lg"
                                                 style={{ width: '100%' }}
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await fetch('/api/payments/initialize', {
-                                                            method: 'POST',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({
-                                                                email: profile.email || user?.email || 'student@rgn.com',
-                                                                amount: premiumPrice,
-                                                                callback_url: window.location.origin + '/dashboard?payment=verify'
-                                                            })
-                                                        });
-                                                        const data = await res.json();
-                                                        if (data.authorization_url) {
-                                                            window.location.href = data.authorization_url;
-                                                        } else {
-                                                            alert(data.error || "Failed to initialize payment");
-                                                        }
-                                                    } catch (err: any) {
-                                                        alert("Payment error: " + err.message);
-                                                    }
-                                                }}
+                                                onClick={handleUpgradeClick}
                                             >
                                                 Pay GHS {premiumPrice} Now
                                             </Button>
