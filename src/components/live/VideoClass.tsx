@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/Button";
 import { supabase, Lesson } from "@/lib/supabase";
 
 export const VideoClass = () => {
-    const { profile, user } = useAuth();
+    const { profile, user } = useAuth();is the user
     const [popupWindow, setPopupWindow] = useState<Window | null>(null);
     const [isWindowOpen, setIsWindowOpen] = useState(false);
+
+    // Track if admin explicitly ended the video (for this session)
+    const [videoEndedLocally, setVideoEndedLocally] = useState<Record<string, boolean>>({});
 
     // New state for lesson tracking
     const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
@@ -31,6 +34,17 @@ export const VideoClass = () => {
 
                 if (data) {
                     setCurrentLesson(data as Lesson);
+
+                    // Check if this lesson's video was already ended in this browser
+                    const endedMap = JSON.parse(localStorage.getItem('rgn_ended_videos') || '{}');
+                    if (endedMap[data.id]) {
+                        setVideoEndedLocally(prev => ({...prev, [data.id]: true}));
+                    }
+
+                    // Check if admin previously opened a broadcast in another tab
+                    if (localStorage.getItem(`rgn_jitsi_active_${data.id}`) === 'true') {
+                        setIsWindowOpen(true);
+                    }
                 } else {
                     setCurrentLesson(null);
                 }
@@ -53,13 +67,14 @@ export const VideoClass = () => {
             }, (payload) => {
                 const updatedLesson = payload.new as Lesson;
                 if (updatedLesson.status === 'completed') {
-                    // If the current lesson was marked completed, fetch the next one
+                    // If the current lesson was marked strictly completed (by LessonManager)
                     if (currentLesson && updatedLesson.id === currentLesson.id) {
                         fetchLesson();
                         // Also auto-close window if they are a student
                         if (profile?.role === 'student' && popupWindow) {
-                            try { popupWindow.close(); } catch (e) { }
+                            try { popupWindow.close(); } catch (e) {}
                             setIsWindowOpen(false);
+                            localStorage.removeItem(`rgn_jitsi_active_${currentLesson.id}`);
                         }
                     }
                 } else if (
@@ -71,8 +86,38 @@ export const VideoClass = () => {
             })
             .subscribe();
 
+        // Subscribe to custom broadcast messages for handling "Video Ended" without breaking the database chat status
+        const broadcastChannel = supabase.channel('video-controls')
+            .on('broadcast', { event: 'end-video' }, (payload) => {
+                if (currentLesson && payload.payload.lessonId === currentLesson.id) {
+                    setVideoEndedLocally(prev => ({...prev, [currentLesson.id]: true}));
+
+                    // Save to local storage so a refresh doesn't reopen it
+                    const endedMap = JSON.parse(localStorage.getItem('rgn_ended_videos') || '{}');
+                    endedMap[currentLesson.id] = true;
+                    localStorage.setItem('rgn_ended_videos', JSON.stringify(endedMap));
+
+                    // If we have an open window (e.g. we are a student viewing it), close it automatically
+                    if (popupWindow) {
+                        try { popupWindow.close(); } catch (e) {}
+                    }
+                    setIsWindowOpen(false);
+                    localStorage.removeItem(`rgn_jitsi_active_${currentLesson.id}`);
+                }
+            })
+            .on('broadcast', { event: 'revive-video' }, (payload) => {
+                if (currentLesson && payload.payload.lessonId === currentLesson.id) {
+                    setVideoEndedLocally(prev => ({...prev, [currentLesson.id]: false}));
+                    const endedMap = JSON.parse(localStorage.getItem('rgn_ended_videos') || '{}');
+                    delete endedMap[currentLesson.id];
+                    localStorage.setItem('rgn_ended_videos', JSON.stringify(endedMap));
+                }
+            })
+            .subscribe();
+
         return () => {
             subscription.unsubscribe();
+            supabase.removeChannel(broadcastChannel);
         };
     }, [currentLesson?.id, profile?.role, popupWindow]);
 
@@ -84,6 +129,9 @@ export const VideoClass = () => {
                 if (popupWindow.closed) {
                     setIsWindowOpen(false);
                     setPopupWindow(null);
+                    if (currentLesson) {
+                       localStorage.removeItem(`rgn_jitsi_active_${currentLesson.id}`);
+                    }
                     clearInterval(interval);
                 }
             }, 1000);
@@ -91,12 +139,14 @@ export const VideoClass = () => {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [popupWindow]);
+    }, [popupWindow, currentLesson]);
 
     if (!profile || !user) return null;
 
     const isStaff = profile.role === 'admin' || profile.role === 'ta';
     const roomName = "RGN_Live_Classroom_Official_Stream";
+
+    const hasVideoEndedForCurrentLesson = currentLesson && videoEndedLocally[currentLesson.id];
 
     const startBroadcast = async () => {
         if (!isStaff) return;
@@ -109,26 +159,48 @@ export const VideoClass = () => {
                 .eq('id', currentLesson.id);
         }
 
+        // Reset local ended state if admin decides to restart
+        if (currentLesson) {
+            setVideoEndedLocally(prev => ({...prev, [currentLesson.id]: false}));
+            const endedMap = JSON.parse(localStorage.getItem('rgn_ended_videos') || '{}');
+            delete endedMap[currentLesson.id];
+            localStorage.setItem('rgn_ended_videos', JSON.stringify(endedMap));
+
+            // Broadcast that video revived
+            supabase.channel('video-controls').send({
+                type: 'broadcast',
+                event: 'revive-video',
+                payload: { lessonId: currentLesson.id }
+            });
+        }
+
         openJitsiPopup();
     };
 
     const endBroadcast = async () => {
-        if (!isStaff) return;
+        if (!isStaff || !currentLesson) return;
 
-        const confirmEnd = window.confirm("Are you sure you want to completely end this broadcast? Students will no longer be able to join.");
+        const confirmEnd = window.confirm("End the VIDEO broadcast? (The Lesson Live Chat will remain active)");
         if (!confirmEnd) return;
 
-        if (currentLesson && (currentLesson.status === 'live' || currentLesson.status === 'scheduled')) {
-            await supabase
-                .from('lessons')
-                .update({ status: 'completed', ended_at: new Date().toISOString() })
-                .eq('id', currentLesson.id);
-        }
+        // Broadcast to all clients to shut down video UI
+        await supabase.channel('video-controls').send({
+            type: 'broadcast',
+            event: 'end-video',
+            payload: { lessonId: currentLesson.id }
+        });
+
+        // Handle locally for admin
+        setVideoEndedLocally(prev => ({...prev, [currentLesson.id]: true}));
+        const endedMap = JSON.parse(localStorage.getItem('rgn_ended_videos') || '{}');
+        endedMap[currentLesson.id] = true;
+        localStorage.setItem('rgn_ended_videos', JSON.stringify(endedMap));
 
         if (popupWindow) {
-            try { popupWindow.close(); } catch (e) { }
+            try { popupWindow.close(); } catch (e) {}
         }
         setIsWindowOpen(false);
+        localStorage.removeItem(`rgn_jitsi_active_${currentLesson.id}`);
     };
 
     const openJitsiPopup = () => {
@@ -164,6 +236,9 @@ export const VideoClass = () => {
         if (newWindow) {
             setPopupWindow(newWindow);
             setIsWindowOpen(true);
+            if (currentLesson) {
+                localStorage.setItem(`rgn_jitsi_active_${currentLesson.id}`, 'true');
+            }
         } else {
             alert("Your browser blocked the popup. Please allow popups for this site to open the live class.");
         }
@@ -180,41 +255,62 @@ export const VideoClass = () => {
                         <p>Loading class schedule...</p>
                     ) : isStaff ? (
                         <>
-                            <p>Start the stream for students. A secure broadcasting window will open.</p>
-
-                            {currentLesson?.status === 'scheduled' && (
-                                <p style={{ fontSize: '0.9em', color: 'var(--amber-500)', marginTop: '0.5rem' }}>
-                                    Starting broadcast will change lesson status to Live.
-                                </p>
-                            )}
-                            {currentLesson?.status === 'live' && (
-                                <p style={{ fontSize: '0.9em', color: 'var(--primary)', marginTop: '0.5rem' }}>
-                                    ● A broadcast is currently marked as LIVE.
-                                </p>
-                            )}
-
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                <Button onClick={startBroadcast} variant="primary" size="lg" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    {currentLesson?.status === 'live' ? 'Rejoin Broadcast' : 'Start Broadcast'} (Popup) <ExternalLink size={18} />
-                                </Button>
-                                {currentLesson?.status === 'live' && (
-                                    <Button onClick={endBroadcast} variant="error" size="lg">
-                                        End Class
+                            {hasVideoEndedForCurrentLesson ? (
+                                <>
+                                    <div style={{ padding: '1.5rem', background: 'var(--card-hover)', borderRadius: 'var(--radius)', marginTop: '1rem' }}>
+                                        <CheckCircle size={32} color="var(--success)" style={{ margin: '0 auto 0.5rem' }} />
+                                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>Video Broadcast Ended</h3>
+                                        <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                                            The video portion is finished, but chat remains active.
+                                        </p>
+                                    </div>
+                                    <Button onClick={startBroadcast} variant="outline" size="sm" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem auto 0' }}>
+                                        Restart Broadcast (Popup)
                                     </Button>
-                                )}
-                            </div>
+                                </>
+                            ) : (
+                                <>
+                                    <p>Start the stream for students. A secure broadcasting window will open.</p>
+
+                                    {currentLesson?.status === 'scheduled' && (
+                                        <p style={{ fontSize: '0.9em', color: 'var(--amber-500)', marginTop: '0.5rem' }}>
+                                            Starting broadcast will change lesson status to Live.
+                                        </p>
+                                    )}
+                                    {currentLesson?.status === 'live' && (
+                                        <p style={{ fontSize: '0.9em', color: 'var(--primary)', marginTop: '0.5rem' }}>
+                                            ● A lesson is currently marked as LIVE.
+                                        </p>
+                                    )}
+
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                        <Button onClick={startBroadcast} variant="primary" size="lg" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            {currentLesson?.status === 'live' ? 'Resume Broadcast' : 'Start Broadcast'} (Popup) <ExternalLink size={18} />
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
                         </>
                     ) : (
                         <>
-                            {!currentLesson || currentLesson.status === 'scheduled' ? (
+                            {!currentLesson || currentLesson.status === 'scheduled' || hasVideoEndedForCurrentLesson ? (
                                 <>
                                     <div style={{ padding: '1.5rem', background: 'var(--card-hover)', borderRadius: 'var(--radius)', marginTop: '1rem' }}>
-                                        <Clock size={32} color="var(--secondary)" style={{ margin: '0 auto 0.5rem' }} />
-                                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>Class is not live yet</h3>
+                                        {hasVideoEndedForCurrentLesson ? (
+                                            <CheckCircle size={32} color="var(--success)" style={{ margin: '0 auto 0.5rem' }} />
+                                        ) : (
+                                            <Clock size={32} color="var(--secondary)" style={{ margin: '0 auto 0.5rem' }} />
+                                        )}
+
+                                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>
+                                            {hasVideoEndedForCurrentLesson ? "Video Broadcast Ended" : "Video not live yet"}
+                                        </h3>
                                         <p style={{ margin: 0, fontSize: '0.95rem' }}>
-                                            {currentLesson
-                                                ? `The stream will begin when an instructor starts the broadcast.`
-                                                : `There are no scheduled live classes at this time.`}
+                                            {hasVideoEndedForCurrentLesson
+                                                ? `The video portion of the lesson has been ended by the instructor.`
+                                                : currentLesson
+                                                    ? `The stream will begin when an instructor starts the broadcast.`
+                                                    : `There are no scheduled live classes at this time.`}
                                         </p>
                                     </div>
                                 </>
@@ -258,15 +354,18 @@ export const VideoClass = () => {
                     </Button>
                     <Button onClick={() => {
                         if (popupWindow) {
-                            try { popupWindow.close(); } catch (e) { }
+                            try { popupWindow.close(); } catch (e) {}
                         }
                         setIsWindowOpen(false);
+                        if (currentLesson) {
+                            localStorage.removeItem(`rgn_jitsi_active_${currentLesson.id}`);
+                        }
                     }} variant="ghost" size="lg">
                         Close Connection
                     </Button>
                     {isStaff && (
                         <Button onClick={endBroadcast} variant="error" size="lg">
-                            End Class For Everyone
+                            End Video Broadcast
                         </Button>
                     )}
                 </div>
