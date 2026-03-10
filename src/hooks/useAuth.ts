@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase, Profile } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js";
+import { User, Session } from "@supabase/supabase-js";
 
 function getOrGenerateSessionId() {
     if (typeof window === "undefined") return null;
@@ -27,174 +27,151 @@ export function useAuth() {
         sessionIdRef.current = getOrGenerateSessionId();
     }, []);
 
-    useEffect(() => {
-        const fetchProfile = async (currentUser: User) => {
-            try {
-                const { data, error } = await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", currentUser.id)
-                    .single();
-
-                if (data) {
-                    setProfile(data);
-                } else {
-                    throw new Error("Profile not found");
-                }
-            } catch (err) {
-                console.warn("Profile fetch failed, using fallback:", err);
-                setProfile({
-                    id: currentUser.id,
-                    full_name: currentUser.user_metadata?.full_name || "User",
-                    role: currentUser.user_metadata?.role || "student",
-                    school: currentUser.user_metadata?.school || "",
-                    is_locked: false,
-                    is_hand_raised: false,
-                    points: 0
-                } as Profile);
-            }
-        };
-
-        const registerDeviceSession = async (userId: string) => {
-            const sessionId = getOrGenerateSessionId();
-            if (!sessionId) return;
-
-            sessionIdRef.current = sessionId;
-
-            // Write it to the profile
-            await supabase
+    const fetchProfile = async (currentUser: User) => {
+        try {
+            const { data } = await supabase
                 .from("profiles")
-                .update({ device_session_id: sessionId })
-                .eq("id", userId);
-        };
+                .select("*")
+                .eq("id", currentUser.id)
+                .single();
 
+            if (data) {
+                setProfile(data);
+            } else {
+                throw new Error("Profile not found");
+            }
+        } catch (err) {
+            console.warn("Profile fetch failed, using fallback:", err);
+            setProfile({
+                id: currentUser.id,
+                full_name: currentUser.user_metadata?.full_name || "User",
+                role: currentUser.user_metadata?.role || "student",
+                school: currentUser.user_metadata?.school || "",
+                is_locked: false,
+                is_hand_raised: false,
+                points: 0
+            } as Profile);
+        }
+    };
+
+    const registerDeviceSession = async (userId: string) => {
+        const sessionId = getOrGenerateSessionId();
+        if (!sessionId) return;
+        sessionIdRef.current = sessionId;
+        await supabase
+            .from("profiles")
+            .update({ device_session_id: sessionId })
+            .eq("id", userId);
+    };
+
+    const handleSession = async (session: Session | null) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser) {
+            // Fetch profile and register device concurrently to speed up login
+            await Promise.all([
+                fetchProfile(currentUser),
+                registerDeviceSession(currentUser.id)
+            ]);
+        } else {
+            setProfile(null);
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("rgn_device_session_id");
+                sessionIdRef.current = null;
+            }
+        }
+        setLoading(false);
+    };
+
+    // Primary Auth Observer (Runs ONCE on mount)
+    useEffect(() => {
         const getSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                const currentUser = session?.user ?? null;
-                setUser(currentUser);
-
-                if (currentUser) {
-                    await fetchProfile(currentUser);
-                    await registerDeviceSession(currentUser.id);
-                }
+                await handleSession(session);
             } catch (err) {
                 console.error("Session fetch error:", err);
-            } finally {
                 setLoading(false);
             }
         };
 
         getSession();
 
-        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            try {
-                const currentUser = session?.user ?? null;
-                setUser(currentUser);
-
-                if (currentUser) {
-                    await fetchProfile(currentUser);
-                    await registerDeviceSession(currentUser.id);
-                } else {
-                    setProfile(null);
-                    // Clear local session ID on sign out to allow fresh start
-                    if (typeof window !== "undefined") {
-                        localStorage.removeItem("rgn_device_session_id");
-                        sessionIdRef.current = null;
-                    }
-                }
-            } catch (err) {
-                console.error("Auth state change error:", err);
-            } finally {
-                setLoading(false);
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+            async (_event, session) => {
+                await handleSession(session);
             }
-        });
-
-        // Real-time profile subscription (includes device session check)
-        let profileSubscription: any = null;
-
-        const startProfileSubscription = (userId: string) => {
-            profileSubscription = supabase
-                .channel(`profile-updates-${userId}`)
-                .on('postgres_changes',
-                    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
-                    (payload) => {
-                        const updatedProfile = payload.new as Profile;
-                        setProfile(updatedProfile);
-
-                        // Single device enforcement
-                        const currentSessionId = sessionIdRef.current || getOrGenerateSessionId();
-
-                        if (
-                            currentSessionId &&
-                            updatedProfile.device_session_id &&
-                            updatedProfile.device_session_id !== currentSessionId
-                        ) {
-                            console.warn("[Auth] Another device logged in. Session mismatch:", {
-                                local: currentSessionId,
-                                remote: updatedProfile.device_session_id
-                            });
-
-                            // Prevent accidental logouts if the remote ID is null/empty (shouldn't happen but safe to have)
-                            if (updatedProfile.device_session_id.length > 5) {
-                                supabase.auth.signOut();
-                                alert("You have been logged out because your account was signed in on another device.");
-                            }
-                        }
-                    }
-                )
-                .subscribe();
-        };
-
-        // Supabase Presence for Online Now tracking
-        let presenceChannel: any = null;
-
-        const startPresence = (userId: string) => {
-            presenceChannel = supabase.channel('online-users', {
-                config: {
-                    presence: {
-                        key: userId,
-                    },
-                },
-            });
-
-            presenceChannel
-                .on('presence', { event: 'sync' }, () => {
-                    const state = presenceChannel.presenceState();
-                    // Count unique users across all tabs/sessions
-                    setOnlineCount(Object.keys(state).length);
-                })
-                .on('presence', { event: 'join', key: userId }, ({ newPresences }: any) => {
-                    // console.log('Joined:', newPresences);
-                })
-                .on('presence', { event: 'leave', key: userId }, ({ leftPresences }: any) => {
-                    // console.log('Left:', leftPresences);
-                })
-                .subscribe(async (status: string) => {
-                    if (status === 'SUBSCRIBED') {
-                        await presenceChannel.track({
-                            user_id: userId,
-                            online_at: new Date().toISOString(),
-                        });
-                    }
-                });
-        };
-
-        if (user) {
-            startProfileSubscription(user.id);
-            startPresence(user.id);
-        }
+        );
 
         return () => {
             authSubscription.unsubscribe();
+        };
+    }, []); // <-- Empty dependency array prevents double-fetching loop
+
+    // Subscriptions: Only run when `user.id` is available and changes
+    useEffect(() => {
+        let profileSubscription: any = null;
+        let presenceChannel: any = null;
+
+        if (!user) return;
+
+        const userId = user.id;
+
+        // Start Profile Subscription for single device enforcement
+        profileSubscription = supabase
+            .channel(`profile-updates-${userId}`)
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+                (payload) => {
+                    const updatedProfile = payload.new as Profile;
+                    setProfile(updatedProfile);
+
+                    const currentSessionId = sessionIdRef.current || getOrGenerateSessionId();
+                    if (
+                        currentSessionId &&
+                        updatedProfile.device_session_id &&
+                        updatedProfile.device_session_id !== currentSessionId
+                    ) {
+                        console.warn("[Auth] Another device logged in. Session mismatch.");
+                        if (updatedProfile.device_session_id.length > 5) {
+                            supabase.auth.signOut();
+                            alert("You have been logged out because your account was signed in on another device.");
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        // Start Presence Tracking
+        presenceChannel = supabase.channel('online-users', {
+            config: { presence: { key: userId } },
+        });
+
+        presenceChannel
+            .on('presence', { event: 'sync' }, () => {
+                const state = presenceChannel.presenceState();
+                setOnlineCount(Object.keys(state).length);
+            })
+            .subscribe(async (status: string) => {
+                if (status === 'SUBSCRIBED') {
+                    await presenceChannel.track({
+                        user_id: userId,
+                        online_at: new Date().toISOString(),
+                    });
+                }
+            });
+
+        return () => {
             if (profileSubscription) supabase.removeChannel(profileSubscription);
             if (presenceChannel) supabase.removeChannel(presenceChannel);
         };
-    }, [user?.id]);
+    }, [user?.id]); // Only re-subscribe if the user ID changes
 
     const signOut = async () => {
         if (typeof window !== "undefined") {
             localStorage.removeItem("rgn_device_session_id");
+            sessionIdRef.current = null;
         }
         await supabase.auth.signOut();
     };
