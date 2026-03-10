@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import styles from "./VideoClass.module.css";
-import { Video, Shield, ExternalLink, Clock } from "lucide-react";
+import { Video, Shield, ExternalLink, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { supabase, Lesson } from "@/lib/supabase";
 
@@ -21,7 +21,7 @@ export const VideoClass = () => {
         const fetchLesson = async () => {
             try {
                 // Find a lesson that is live or scheduled today
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from('lessons')
                     .select('*')
                     .in('status', ['live', 'scheduled'])
@@ -31,6 +31,8 @@ export const VideoClass = () => {
 
                 if (data) {
                     setCurrentLesson(data as Lesson);
+                } else {
+                    setCurrentLesson(null);
                 }
             } catch (err) {
                 console.error("Error fetching lesson:", err);
@@ -49,9 +51,18 @@ export const VideoClass = () => {
                 schema: 'public',
                 table: 'lessons'
             }, (payload) => {
-                // If the updated lesson is the current one, or if there's a new live lesson
                 const updatedLesson = payload.new as Lesson;
-                if (
+                if (updatedLesson.status === 'completed') {
+                    // If the current lesson was marked completed, fetch the next one
+                    if (currentLesson && updatedLesson.id === currentLesson.id) {
+                        fetchLesson();
+                        // Also auto-close window if they are a student
+                        if (profile?.role === 'student' && popupWindow) {
+                            try { popupWindow.close(); } catch (e) { }
+                            setIsWindowOpen(false);
+                        }
+                    }
+                } else if (
                     (currentLesson && updatedLesson.id === currentLesson.id) ||
                     (updatedLesson.status === 'live' || updatedLesson.status === 'scheduled')
                 ) {
@@ -63,7 +74,7 @@ export const VideoClass = () => {
         return () => {
             subscription.unsubscribe();
         };
-    }, [currentLesson?.id]);
+    }, [currentLesson?.id, profile?.role, popupWindow]);
 
     // Track if the popup window is closed by the user manually
     useEffect(() => {
@@ -101,9 +112,27 @@ export const VideoClass = () => {
         openJitsiPopup();
     };
 
+    const endBroadcast = async () => {
+        if (!isStaff) return;
+
+        const confirmEnd = window.confirm("Are you sure you want to completely end this broadcast? Students will no longer be able to join.");
+        if (!confirmEnd) return;
+
+        if (currentLesson && (currentLesson.status === 'live' || currentLesson.status === 'scheduled')) {
+            await supabase
+                .from('lessons')
+                .update({ status: 'completed', ended_at: new Date().toISOString() })
+                .eq('id', currentLesson.id);
+        }
+
+        if (popupWindow) {
+            try { popupWindow.close(); } catch (e) { }
+        }
+        setIsWindowOpen(false);
+    };
+
     const openJitsiPopup = () => {
         const domain = "meet.jit.si";
-
         const displayName = profile.full_name;
 
         // Pass configuration via URL hash for Jitsi Meet free tier
@@ -152,14 +181,28 @@ export const VideoClass = () => {
                     ) : isStaff ? (
                         <>
                             <p>Start the stream for students. A secure broadcasting window will open.</p>
+
                             {currentLesson?.status === 'scheduled' && (
                                 <p style={{ fontSize: '0.9em', color: 'var(--amber-500)', marginTop: '0.5rem' }}>
                                     Starting broadcast will change lesson status to Live.
                                 </p>
                             )}
-                            <Button onClick={startBroadcast} variant="primary" size="lg" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem auto 0' }}>
-                                Start Broadcast (Popup) <ExternalLink size={18} />
-                            </Button>
+                            {currentLesson?.status === 'live' && (
+                                <p style={{ fontSize: '0.9em', color: 'var(--primary)', marginTop: '0.5rem' }}>
+                                    ● A broadcast is currently marked as LIVE.
+                                </p>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <Button onClick={startBroadcast} variant="primary" size="lg" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    {currentLesson?.status === 'live' ? 'Rejoin Broadcast' : 'Start Broadcast'} (Popup) <ExternalLink size={18} />
+                                </Button>
+                                {currentLesson?.status === 'live' && (
+                                    <Button onClick={endBroadcast} variant="error" size="lg">
+                                        End Class
+                                    </Button>
+                                )}
+                            </div>
                         </>
                     ) : (
                         <>
@@ -178,8 +221,11 @@ export const VideoClass = () => {
                             ) : (
                                 <>
                                     <p>Join the interactive live class. A floating viewer window will open so you can watch while chatting.</p>
+                                    <div style={{ padding: '0.75rem', background: 'rgba(var(--primary-rgb), 0.1)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--secondary)', marginTop: '1rem', textAlign: 'left' }}>
+                                        <strong>📱 On Mobile:</strong> The video will open in a New Tab. You can safely switch between Tabs to watch the video and use the Chat at the same time! When the class is over, just close the video tab.
+                                    </div>
                                     <Button onClick={openJitsiPopup} variant="primary" size="lg" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem auto 0' }}>
-                                        Join Class (Popup) <ExternalLink size={18} />
+                                        Join Class Window <ExternalLink size={18} />
                                     </Button>
                                 </>
                             )}
@@ -195,8 +241,12 @@ export const VideoClass = () => {
             <div className={styles.joinCard}>
                 <Video size={48} color="var(--primary)" />
                 <h2>Classroom Active</h2>
-                <p>The classroom is currently open in a floating window. You can resize and drag it alongside your chat.</p>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'center' }}>
+                <p>The classroom is currently open in a separate window or tab.</p>
+                <div style={{ padding: '0.75rem', background: 'var(--card-hover)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>
+                    <strong>Tip:</strong> You can resize the window and drag it alongside your chat, or switch tabs if you are on a mobile device.
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Button onClick={() => {
                         if (popupWindow && !popupWindow.closed) {
                             popupWindow.focus();
@@ -208,14 +258,17 @@ export const VideoClass = () => {
                     </Button>
                     <Button onClick={() => {
                         if (popupWindow) {
-                            popupWindow.close();
+                            try { popupWindow.close(); } catch (e) { }
                         }
                         setIsWindowOpen(false);
-
-                        // If admin closes, ideally we might want to end the broadcast, but for now just close the window
                     }} variant="ghost" size="lg">
                         Close Connection
                     </Button>
+                    {isStaff && (
+                        <Button onClick={endBroadcast} variant="error" size="lg">
+                            End Class For Everyone
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>
