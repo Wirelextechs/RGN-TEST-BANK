@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { supabase, Lesson } from "@/lib/supabase";
 
 export const VideoClass = () => {
-    const { profile, user } = useAuth();is the user
+    const { profile, user } = useAuth();
     const [popupWindow, setPopupWindow] = useState<Window | null>(null);
     const [isWindowOpen, setIsWindowOpen] = useState(false);
 
