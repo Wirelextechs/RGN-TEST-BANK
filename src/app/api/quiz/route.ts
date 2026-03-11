@@ -3,6 +3,8 @@ import mammoth from "mammoth";
 const pdfParse = require("pdf-parse");
 
 export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
     try {
