@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
+const pdfParse = require("pdf-parse");
 
 export const maxDuration = 60;
 
