@@ -901,16 +901,7 @@ export default function DashboardPage() {
                             )
                         )}
 
-                        {activeTab === "quizzes" && (
-                            <div className={styles.quizSection}>
-                                {isStaff && (
-                                    <div style={{ marginBottom: "2rem" }}>
-                                        <QuizGenerator />
-                                    </div>
-                                )}
-                                <QuizPlayer quiz={[]} />
-                            </div>
-                        )}
+
 
                         {activeTab === "overview" && (
                             <div className={styles.overviewSection}>
