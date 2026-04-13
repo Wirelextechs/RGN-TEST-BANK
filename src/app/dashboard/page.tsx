@@ -1361,7 +1361,8 @@ export default function DashboardPage() {
                                         <div className={styles.quizContentHeader}>
                                             <div className={styles.searchBar}>
                                                 <SearchableSelect
-                                                    options={[{ label: "All Courses", value: "" }, ...NURSING_COURSES.map(c => ({ label: c, value: c }))]}
+                                                    label="Select Course"
+                                                    options={[{ name: "All Courses" }, ...NURSING_COURSES.map(c => ({ name: c }))]}
                                                     value={quizSearch}
                                                     onChange={setQuizSearch}
                                                     placeholder="Filter by Course"
