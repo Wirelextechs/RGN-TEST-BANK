@@ -10,6 +10,7 @@ interface Question {
     question: string;
     options: string[];
     correctAnswer: string;
+    explanation?: string;
 }
 
 interface QuizPlayerProps {
@@ -18,10 +19,10 @@ interface QuizPlayerProps {
     onComplete?: (score: number) => void;
 }
 
-export const QuizPlayer = ({ quiz, timeLimit = 10, onComplete }: QuizPlayerProps) => {
+export const QuizPlayer = ({ quiz, timeLimit, onComplete }: QuizPlayerProps) => {
     const [currentIdx, setCurrentIdx] = useState(0);
     const [answers, setAnswers] = useState<string[]>(new Array(quiz.length).fill(""));
-    const [timeLeft, setTimeLeft] = useState(timeLimit * 60);
+    const [timeLeft, setTimeLeft] = useState(timeLimit ? timeLimit * 60 : null);
     const [isFinished, setIsFinished] = useState(false);
     const [score, setScore] = useState(0);
 
@@ -36,13 +37,15 @@ export const QuizPlayer = ({ quiz, timeLimit = 10, onComplete }: QuizPlayerProps
     }
 
     useEffect(() => {
-        if (timeLeft <= 0 && !isFinished) {
+        if (timeLeft === null || isFinished) return;
+
+        if (timeLeft <= 0) {
             handleFinish();
             return;
         }
 
         const timer = setInterval(() => {
-            setTimeLeft((prev) => prev - 1);
+            setTimeLeft((prev) => (prev !== null ? prev - 1 : null));
         }, 1000);
 
         return () => clearInterval(timer);
@@ -74,13 +77,49 @@ export const QuizPlayer = ({ quiz, timeLimit = 10, onComplete }: QuizPlayerProps
     if (isFinished) {
         return (
             <Card className={styles.resultsCard}>
-                <CheckCircle2 size={64} color="var(--success)" className={styles.resultIcon} />
-                <h2>Quiz Completed!</h2>
-                <div className={styles.scoreDisplay}>
-                    <span className={styles.scoreNum}>{score}</span>
-                    <span className={styles.scoreTotal}>/ {quiz.length}</span>
+                <div className={styles.resultsHeader}>
+                    <CheckCircle2 size={48} color="var(--success)" />
+                    <div>
+                        <h2>Quiz Finished!</h2>
+                        <p>Score: <strong>{score}</strong> out of {quiz.length} ({Math.round((score / quiz.length) * 100)}%)</p>
+                    </div>
                 </div>
-                <p>Your score: {Math.round((score / quiz.length) * 100)}%</p>
+
+                <div className={styles.reviewSection}>
+                    <h3>Review Answers</h3>
+                    <div className={styles.reviewList}>
+                        {quiz.map((q, idx) => {
+                            const isCorrect = answers[idx] === q.correctAnswer;
+                            return (
+                                <div key={idx} className={`${styles.reviewItem} ${isCorrect ? styles.reviewCorrect : styles.reviewIncorrect}`}>
+                                    <div className={styles.reviewQHeader}>
+                                        <span className={styles.reviewNum}>Q{idx + 1}</span>
+                                        {isCorrect ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                                    </div>
+                                    <p className={styles.reviewText}>{q.question}</p>
+                                    <div className={styles.reviewAnswers}>
+                                        <div className={styles.reviewAnsRow}>
+                                            <span className={styles.ansLabel}>Your Answer:</span>
+                                            <span className={styles.ansValue}>{answers[idx] || "(No Answer)"}</span>
+                                        </div>
+                                        {!isCorrect && (
+                                            <div className={styles.reviewAnsRow}>
+                                                <span className={`${styles.ansLabel} ${styles.correctLabel}`}>Correct Answer:</span>
+                                                <span className={styles.ansValue}>{q.correctAnswer}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {q.explanation && (
+                                        <div className={styles.explanationArea}>
+                                            <p><strong>Explanation:</strong> {q.explanation}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
                 <Button onClick={() => window.location.reload()} className={styles.restartBtn}>
                     <RefreshCcw size={18} />
                     Try Another Quiz
@@ -103,10 +142,12 @@ export const QuizPlayer = ({ quiz, timeLimit = 10, onComplete }: QuizPlayerProps
                         ></div>
                     </div>
                 </div>
-                <div className={`${styles.timer} ${timeLeft < 60 ? styles.timerWarning : ""}`}>
-                    <Clock size={18} />
-                    <span>{formatTime(timeLeft)}</span>
-                </div>
+                {timeLeft !== null && (
+                    <div className={`${styles.timer} ${timeLeft < 60 ? styles.timerWarning : ""}`}>
+                        <Clock size={18} />
+                        <span>{formatTime(timeLeft)}</span>
+                    </div>
+                )}
             </header>
 
             <div className={styles.questionSection}>

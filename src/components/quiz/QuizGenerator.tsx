@@ -13,13 +13,23 @@ interface QuizQuestion {
     correctAnswer: string | null;
 }
 
-export const QuizGenerator = () => {
+interface QuizGeneratorProps {
+    userId: string;
+}
+
+export const QuizGenerator = ({ userId }: QuizGeneratorProps) => {
     const [activeTab, setActiveTab] = useState<"upload" | "manual">("upload");
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [status, setStatus] = useState<"idle" | "success" | "error" | "review">("idle");
     const [message, setMessage] = useState("");
     const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+
+    // New Quiz Settings
+    const [quizTitle, setQuizTitle] = useState("");
+    const [course, setCourse] = useState("RGN");
+    const [isPremiumOnly, setIsPremiumOnly] = useState(false);
+    const [timeLimit, setTimeLimit] = useState<number | "indefinite">(30);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -62,6 +72,7 @@ export const QuizGenerator = () => {
             }));
 
             setQuestions(parsedQuestions);
+            setQuizTitle(file.name.replace(/\.[^/.]+$/, "")); // Default title from filename
             setStatus("review");
             setMessage(`Extracted ${parsedQuestions.length} questions. Please review and provide missing answers.`);
         } catch (err: any) {
@@ -131,14 +142,38 @@ export const QuizGenerator = () => {
         }
 
         setIsUploading(true);
-        // MOCK SUPABASE SAVE FOR NOW
-        setTimeout(() => {
-            setIsUploading(false);
+        try {
+            const response = await fetch("/api/quiz/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: quizTitle || "Untitled Quiz",
+                    course,
+                    is_premium_only: isPremiumOnly,
+                    time_limit: timeLimit === "indefinite" ? null : timeLimit,
+                    questions: questions.map(q => ({
+                        question: q.question,
+                        options: q.options,
+                        correctAnswer: q.correctAnswer,
+                        explanation: (q as any).explanation || ""
+                    })),
+                    created_by: userId
+                }),
+            });
+
+            if (!response.ok) throw new Error("Failed to save quiz to database");
+
             setStatus("success");
             setMessage(`Successfully published quiz with ${questions.length} questions!`);
             setQuestions([]);
             setFile(null);
-        }, 1500);
+            setQuizTitle("");
+        } catch (err: any) {
+            setStatus("error");
+            setMessage(err.message || "Failed to save quiz");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
@@ -204,8 +239,63 @@ export const QuizGenerator = () => {
 
             {status === "review" && (
                 <div className={styles.reviewContainer}>
+                    <div className={styles.adminControls}>
+                        <div className={styles.controlGroup}>
+                            <label>Quiz Title</label>
+                            <input
+                                type="text"
+                                value={quizTitle}
+                                onChange={(e) => setQuizTitle(e.target.value)}
+                                placeholder="Enter quiz title..."
+                                className={styles.titleInput}
+                            />
+                        </div>
+                        <div className={styles.controlRow}>
+                            <div className={styles.controlGroup}>
+                                <label>Course</label>
+                                <select value={course} onChange={(e) => setCourse(e.target.value)} className={styles.selectInput}>
+                                    <option value="RGN">RGN</option>
+                                    <option value="PH">PH</option>
+                                    <option value="MIDWIFERY">MIDWIFERY</option>
+                                    <option value="MENTAL HEALTH">MENTAL HEALTH</option>
+                                </select>
+                            </div>
+                            <div className={styles.controlGroup}>
+                                <label>Time Limit (mins)</label>
+                                <div className={styles.timeInputWrapper}>
+                                    <input
+                                        type="number"
+                                        disabled={timeLimit === "indefinite"}
+                                        value={timeLimit === "indefinite" ? "" : timeLimit}
+                                        onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
+                                        className={styles.timeInput}
+                                    />
+                                    <label className={styles.checkboxLabel}>
+                                        <input
+                                            type="checkbox"
+                                            checked={timeLimit === "indefinite"}
+                                            onChange={(e) => setTimeLimit(e.target.checked ? "indefinite" : 30)}
+                                        />
+                                        Indefinite
+                                    </label>
+                                </div>
+                            </div>
+                            <div className={styles.controlGroup}>
+                                <label>Visibility</label>
+                                <label className={styles.checkboxLabel}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isPremiumOnly}
+                                        onChange={(e) => setIsPremiumOnly(e.target.checked)}
+                                    />
+                                    Premium Only
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className={styles.reviewHeader}>
-                        <h4>Review & Edit Questions ({questions.length})</h4>
+                        <h4>Questions ({questions.length})</h4>
                         <Button variant="outline" size="sm" onClick={addManualQuestion}>
                             <Plus size={16} /> Add Question
                         </Button>

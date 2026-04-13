@@ -37,7 +37,9 @@ import {
     CreditCard,
     Crown,
     UserPlus,
-    Send
+    Send,
+    Plus,
+    FileText
 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import { useRouter } from "next/navigation";
@@ -93,6 +95,12 @@ export default function DashboardPage() {
     const [editPhone, setEditPhone] = useState("");
     const [editCourse, setEditCourse] = useState("");
     const [savingProfile, setSavingProfile] = useState(false);
+    
+    // Quiz States
+    const [quizzes, setQuizzes] = useState<any[]>([]);
+    const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
+    const [fetchingQuizzes, setFetchingQuizzes] = useState(false);
+    const [quizSearch, setQuizSearch] = useState("");
 
     // Fetch admin users for student "Chat Admin" tab
     useEffect(() => {
@@ -248,6 +256,25 @@ export default function DashboardPage() {
             };
         }
     }, [user, loading, router, profile?.role, profile?.id]);
+
+    const fetchQuizzes = async () => {
+        setFetchingQuizzes(true);
+        try {
+            const res = await fetch("/api/quiz/all");
+            const data = await res.json();
+            if (data.quizzes) setQuizzes(data.quizzes);
+        } catch (err) {
+            console.error("Failed to fetch quizzes", err);
+        } finally {
+            setFetchingQuizzes(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === "quizzes") {
+            fetchQuizzes();
+        }
+    }, [activeTab]);
 
     const fetchSchoolStats = async () => {
         const { data, error } = await supabase
@@ -678,7 +705,7 @@ export default function DashboardPage() {
                                     <div style={{ height: '500px', marginBottom: '1.5rem' }}>
                                         <VideoClass />
                                     </div>
-                                    <QuizGenerator />
+                                    <QuizGenerator userId={user.id} />
                                     <Card className={styles.activityCard} title="Top 10 Active Students">
                                         <div className={styles.rankingList}>
                                             {topStudents.map((student, index) => (
@@ -1305,6 +1332,106 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         )}
+                        {activeTab === "quizzes" && (
+                            <div className={styles.quizzesSection}>
+                                {selectedQuiz ? (
+                                    <div className={styles.quizPlayerWrapper}>
+                                        <div className={styles.quizPlayerHeader}>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSelectedQuiz(null)}
+                                                className={styles.backBtn}
+                                            >
+                                                <X size={18} /> Exit Quiz
+                                            </Button>
+                                            <div className={styles.quizInfo}>
+                                                <h2>{selectedQuiz.title}</h2>
+                                                <span>{selectedQuiz.course}</span>
+                                            </div>
+                                        </div>
+                                        <QuizPlayer
+                                            quiz={selectedQuiz.quiz_questions.map((q: any) => ({
+                                                question: q.question_text,
+                                                options: q.options,
+                                                correctAnswer: q.correct_answer,
+                                                explanation: q.explanation
+                                            }))}
+                                            timeLimit={selectedQuiz.time_limit}
+                                            onComplete={async (score) => {
+                                                // Sync score to Supabase points
+                                                const newPoints = (profile.points || 0) + score;
+                                                await supabase.from("profiles").update({ points: newPoints }).eq("id", profile.id);
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className={styles.quizDashboard}>
+                                        <div className={styles.quizContentHeader}>
+                                            <div className={styles.searchBar}>
+                                                <SearchableSelect
+                                                    options={[{ label: "All Courses", value: "" }, ...NURSING_COURSES.map(c => ({ label: c, value: c }))]}
+                                                    value={quizSearch}
+                                                    onChange={setQuizSearch}
+                                                    placeholder="Filter by Course"
+                                                />
+                                            </div>
+                                            {isStaff && (
+                                                <Button variant="primary" onClick={() => setActiveTab("live")}>
+                                                    <Plus size={18} /> Create New Quiz
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        {fetchingQuizzes ? (
+                                            <div className={styles.loading}>
+                                                <div className={styles.spinner}></div>
+                                            </div>
+                                        ) : (
+                                            <div className={styles.quizGrid}>
+                                                {quizzes
+                                                    .filter(q => !quizSearch || q.course === quizSearch)
+                                                    .map((quiz) => {
+                                                        const isLocked = quiz.is_premium_only && !profile.is_premium && profile.role === 'student';
+
+                                                        return (
+                                                            <Card key={quiz.id} className={`${styles.quizCardItem} ${isLocked ? styles.locked : ''}`}>
+                                                                <div className={styles.quizIcon}>
+                                                                    {isLocked ? <Crown size={32} color="#FFD700" /> : <FileText size={32} color="var(--primary)" />}
+                                                                </div>
+                                                                <div className={styles.quizMainInfo}>
+                                                                    <h3>{quiz.title}</h3>
+                                                                    <div className={styles.quizMeta}>
+                                                                        <span>{quiz.course}</span>
+                                                                        <span>•</span>
+                                                                        <span>{quiz.quiz_questions?.length || 0} Questions</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className={styles.quizAction}>
+                                                                    {isLocked ? (
+                                                                        <Button variant="outline" size="sm" onClick={handleUpgradeClick}>
+                                                                            <Crown size={14} style={{ marginRight: '0.4rem' }} /> Unlock
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button variant="primary" size="sm" onClick={() => setSelectedQuiz(quiz)}>
+                                                                            Start Attempt
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                                {quiz.time_limit && <div className={styles.timeBadge}>{quiz.time_limit}m</div>}
+                                                            </Card>
+                                                        );
+                                                    })}
+                                                {quizzes.length === 0 && (
+                                                    <div className={styles.noData}>No quizzes available.</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {activeTab === 'live' && (
                             <div className={styles.chatSection}>
                                 {(paywallEnabled && !profile.is_premium && profile.role === 'student') ? (

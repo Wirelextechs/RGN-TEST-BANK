@@ -11,11 +11,81 @@ if (typeof global.Path2D === "undefined") {
 
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
+import { parseDocumentToQuiz } from "@/lib/gemini";
 const pdfParse = require("pdf-parse");
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+/**
+ * Enhanced Regex Parser for MCQ documents
+ * Handles multi-line questions, various option formats, and answer keys.
+ */
+function enhancedRegexParse(text: string) {
+    const questions: any[] = [];
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    let currentQuestion: any = null;
+
+    const isQuestionStart = (line: string) => {
+        return /^(Q|Question|#)?\s*\d+[\.\)\:\-]\s+/i.test(line);
+    };
+
+    const isOption = (line: string) => {
+        return /^[a-d\d][\.\)\:\-]\s+/i.test(line);
+    };
+
+    const isAnswer = (line: string) => {
+        return /^(Answer|Ans|Correct|Key)\s*[\:\-]?\s*[a-d]/i.test(line);
+    };
+
+    const isExplanation = (line: string) => {
+        return /^(Explanation|Rationale|Note)\s*[\:\-]/i.test(line);
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (isQuestionStart(line)) {
+            if (currentQuestion && currentQuestion.options.length >= 2) {
+                questions.push(currentQuestion);
+            }
+            currentQuestion = {
+                question: line.replace(/^(Q|Question|#)?\s*\d+[\.\)\:\-]\s*/i, '').trim(),
+                options: [],
+                correctAnswer: null,
+                explanation: ""
+            };
+        } else if (currentQuestion && isOption(line)) {
+            currentQuestion.options.push(line.replace(/^[a-d\d][\.\)\:\-]\s*/i, '').trim());
+        } else if (currentQuestion && isAnswer(line)) {
+            const match = line.match(/(?:Answer|Ans|Correct|Key)\s*[\:\-]?\s*([a-d])/i);
+            if (match && match[1]) {
+                const letter = match[1].toUpperCase();
+                const index = letter.charCodeAt(0) - 65;
+                if (index >= 0 && index < currentQuestion.options.length) {
+                    currentQuestion.correctAnswer = currentQuestion.options[index];
+                }
+            }
+        } else if (currentQuestion && isExplanation(line)) {
+            currentQuestion.explanation = line.replace(/^(Explanation|Rationale|Note)\s*[\:\-]\s*/i, '').trim();
+        } else if (currentQuestion && currentQuestion.options.length === 0 && !isAnswer(line)) {
+            // Multi-line question continuation
+            currentQuestion.question += " " + line;
+        } else if (currentQuestion && currentQuestion.options.length > 0 && !isAnswer(line) && !isExplanation(line)) {
+            // Multi-line option continuation (appends to the last added option)
+            const lastIdx = currentQuestion.options.length - 1;
+            currentQuestion.options[lastIdx] += " " + line;
+        }
+    }
+
+    if (currentQuestion && currentQuestion.options.length >= 2) {
+        questions.push(currentQuestion);
+    }
+
+    return questions;
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -31,7 +101,7 @@ export async function POST(req: NextRequest) {
         const filename = file.name.toLowerCase();
         let extractedText = "";
 
-        // Determine file type and parse offline
+        // Text Extraction
         if (filename.endsWith('.pdf')) {
             const pdfData = await pdfParse(buffer);
             extractedText = pdfData.text;
@@ -41,82 +111,37 @@ export async function POST(req: NextRequest) {
         } else if (filename.endsWith('.txt')) {
             extractedText = buffer.toString('utf-8');
         } else {
-            return NextResponse.json({ error: "Unsupported file type. Please upload PDF, DOCX, or TXT." }, { status: 400 });
+            return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
         }
 
         if (!extractedText || extractedText.trim().length === 0) {
-            return NextResponse.json({ error: "Could not extract text from document. Ensure it's not a scanned image PDF." }, { status: 400 });
+            return NextResponse.json({ error: "No text content found" }, { status: 400 });
         }
 
-        // Regex parsing structured to find MCQs
-        const questions: any[] = [];
-        const lines = extractedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        let questions: any[] = [];
 
-        let currentQuestion: any = null;
-
-        const isQuestionStart = (line: string) => {
-            // Matches "1.", "Q1:", "Question 1:", etc.
-            return /^(Q|Question)?\s*\d+[\.\)\:]\s+/i.test(line);
-        };
-
-        const isOption = (line: string) => {
-            // Matches "A.", "a)", "A:", etc.
-            return /^[a-d][\.\)\:]\s+/i.test(line);
-        };
-
-        const isAnswer = (line: string) => {
-            // Matches "Answer: A", "Ans: B"
-            return /^(Answer|Ans|Correct)\s*[\:\-]?\s*[a-d]/i.test(line);
-        };
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (isQuestionStart(line)) {
-                // Save previous if exists
-                if (currentQuestion && currentQuestion.options.length >= 2) {
-                    questions.push(currentQuestion);
-                }
-
-                // Initialize the new question outline
-                currentQuestion = {
-                    question: line.replace(/^(Q|Question)?\s*\d+[\.\)\:]\s*/i, '').trim(),
-                    options: [],
-                    correctAnswer: null,
-                };
-            } else if (currentQuestion && isOption(line)) {
-                currentQuestion.options.push(line);
-            } else if (currentQuestion && isAnswer(line)) {
-                // Extract just the letter (A, B, C, D)
-                const match = line.match(/(?:Answer|Ans|Correct)\s*[\:\-]?\s*([a-d])/i);
-                if (match && match[1]) {
-                    const letter = match[1].toUpperCase();
-                    // Try to match the exact option string we already extracted
-                    const fullOption = currentQuestion.options.find((opt: string) => opt.toUpperCase().startsWith(letter + '.') || opt.toUpperCase().startsWith(letter + ')'));
-                    currentQuestion.correctAnswer = fullOption || null;
-                }
-            } else if (currentQuestion && currentQuestion.options.length === 0 && !isAnswer(line)) {
-                // Multi-line question continuation
-                currentQuestion.question += " " + line;
+        // Attempt Gemini Parsing first
+        try {
+            if (process.env.NEXT_PUBLIC_GEMINI_API_KEY && process.env.NEXT_PUBLIC_GEMINI_API_KEY !== 'placeholder-key') {
+                questions = await parseDocumentToQuiz(extractedText);
             }
+        } catch (aiError) {
+            console.error("Gemini parsing failed, falling back to regex:", aiError);
         }
 
-        // Push the very last question if valid
-        if (currentQuestion && currentQuestion.options.length >= 2) {
-            questions.push(currentQuestion);
+        // Fallback to Enhanced Regex if Gemini didn't return results
+        if (!questions || questions.length === 0) {
+            questions = enhancedRegexParse(extractedText);
         }
 
-        if (questions.length === 0) {
-            throw new Error("No structured Multiple Choice Questions found. Please ensure questions start with numbers and options start with A, B, C, D.");
+        if (!questions || questions.length === 0) {
+            return NextResponse.json({ error: "Failed to extract questions. Please check document formatting." }, { status: 400 });
         }
 
         return NextResponse.json({ quiz: questions });
 
     } catch (error: any) {
         console.error("Quiz parsing error:", error);
-        return NextResponse.json(
-            { error: error.message || "Failed to parse document natively" },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: error.message || "Server error during parsing" }, { status: 500 });
     }
 }

@@ -12,7 +12,8 @@ export async function parseDocumentToQuiz(text: string) {
     {
       "question": "The text of the question",
       "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": "The exact text of the correct option"
+      "correctAnswer": "The exact text of the correct option",
+      "explanation": "Brief explanation of why this is the correct answer"
     }
     
     Return ONLY the JSON array, no other text.

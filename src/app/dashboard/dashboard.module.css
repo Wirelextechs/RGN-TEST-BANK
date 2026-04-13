@@ -735,3 +735,136 @@
     text-align: center;
     margin-left: auto;
 }
+
+/* Quiz Section Styles */
+.quizzesSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.quizPlayerWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+}
+
+.quizPlayerHeader {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+}
+
+.backBtn {
+    color: var(--secondary) !important;
+}
+
+.quizInfo h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.quizInfo span {
+    font-size: 0.85rem;
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.quizDashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.quizContentHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.searchBar {
+    flex: 1;
+    max-width: 400px;
+}
+
+.quizGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.quizCardItem {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem !important;
+    transition: var(--transition);
+    border: 1px solid var(--border);
+}
+
+.quizCardItem:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+}
+
+.locked {
+    background: rgba(0, 0, 0, 0.02);
+    opacity: 0.8;
+}
+
+.quizIcon {
+    width: 64px;
+    height: 64px;
+    background: rgba(19, 96, 59, 0.05);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quizMainInfo h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.quizMeta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--secondary);
+    font-weight: 500;
+}
+
+.quizAction {
+    margin-top: auto;
+}
+
+.timeBadge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--muted);
+    color: var(--secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

@@ -234,3 +234,71 @@
     border-top: 1px solid var(--border);
     padding-top: 1.5rem;
 }
+
+.adminControls {
+    background: var(--card-hover);
+    padding: 1.25rem;
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+}
+
+.controlRow {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.controlGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 200px;
+}
+
+.controlGroup label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+.titleInput, .selectInput, .timeInput {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+.titleInput {
+    width: 100%;
+}
+
+.timeInputWrapper {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.timeInput {
+    width: 80px;
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--foreground);
+}
+
+.checkboxLabel input {
+    cursor: pointer;
+}
