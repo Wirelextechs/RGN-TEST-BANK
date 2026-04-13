@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Modal } from "@/components/ui/Modal";
 import { NURSING_SCHOOLS } from "@/lib/schools";
 import { NURSING_COURSES } from "@/lib/courses";
 import {
@@ -101,6 +102,7 @@ export default function DashboardPage() {
     const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
     const [fetchingQuizzes, setFetchingQuizzes] = useState(false);
     const [quizSearch, setQuizSearch] = useState("");
+    const [showCreateQuiz, setShowCreateQuiz] = useState(false);
 
     // Fetch admin users for student "Chat Admin" tab
     useEffect(() => {
@@ -1369,7 +1371,7 @@ export default function DashboardPage() {
                                                 />
                                             </div>
                                             {isStaff && (
-                                                <Button variant="primary" onClick={() => setActiveTab("live")}>
+                                                <Button variant="primary" onClick={() => setShowCreateQuiz(true)}>
                                                     <Plus size={18} /> Create New Quiz
                                                 </Button>
                                             )}
@@ -1423,6 +1425,21 @@ export default function DashboardPage() {
                                 )}
                             </div>
                         )}
+
+                        <Modal
+                            isOpen={showCreateQuiz}
+                            onClose={() => setShowCreateQuiz(false)}
+                            title="Generate New Quiz"
+                            maxWidth="1000px"
+                        >
+                            <QuizGenerator 
+                                userId={user.id} 
+                                onSuccess={() => {
+                                    setShowCreateQuiz(false);
+                                    fetchQuizzes();
+                                }} 
+                            />
+                        </Modal>
 
                         {activeTab === 'live' && (
                             <div className={styles.chatSection}>

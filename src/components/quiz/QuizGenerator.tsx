@@ -15,9 +15,10 @@ interface QuizQuestion {
 
 interface QuizGeneratorProps {
     userId: string;
+    onSuccess?: () => void;
 }
 
-export const QuizGenerator = ({ userId }: QuizGeneratorProps) => {
+export const QuizGenerator = ({ userId, onSuccess }: QuizGeneratorProps) => {
     const [activeTab, setActiveTab] = useState<"upload" | "manual">("upload");
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -168,6 +169,11 @@ export const QuizGenerator = ({ userId }: QuizGeneratorProps) => {
             setQuestions([]);
             setFile(null);
             setQuizTitle("");
+            
+            // Trigger callback if provided
+            if (onSuccess) {
+                setTimeout(() => onSuccess(), 1500); // Small delay to show success message
+            }
         } catch (err: any) {
             setStatus("error");
             setMessage(err.message || "Failed to save quiz");
